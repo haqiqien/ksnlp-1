@@ -1,4 +1,3 @@
-function tg(){var r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'}
 function bpe(){var ws=document.getElementById('bin').value.trim().split(/\s+/).filter(Boolean),n=+document.getElementById('bn').value,f={};
 ws.forEach(function(w){f[w]=(f[w]||0)+1});var seqs=Object.keys(f).map(function(w){return{s:w.split('').concat(['_']),c:f[w]}}),h='<b>Awal:</b> '+seqs.map(function(q){return q.s.join(' ')+' (x'+q.c+')'}).join(' | ')+'<br>';
 for(var i=1;i<=n;i++){var p={};seqs.forEach(function(q){for(var j=0;j<q.s.length-1;j++){var k=q.s[j]+'\u0001'+q.s[j+1];p[k]=(p[k]||0)+q.c}});
@@ -29,8 +28,7 @@ var ok=o===q[1];if(ok)sc++;b.className=ok?'good':'bad';if(!ok)[].forEach.call(d.
 var f=document.createElement('div');f.className='fb';f.textContent=(ok?'Benar. ':'Belum tepat. ')+q[3];d.appendChild(f);
 document.getElementById('score').textContent='Skor: '+sc+' / '+Object.keys(done).length+' dijawab (total '+Q.length+')'};d.appendChild(b)});
 document.getElementById('quiz').appendChild(d)});
-var L=[].slice.call(document.querySelectorAll('nav a'));
+var L=[].slice.call(document.querySelectorAll('nav a:not(.home-link)'));
 addEventListener('scroll',function(){var c=L[0];L.forEach(function(a){var s=document.querySelector(a.getAttribute('href'));if(s&&s.getBoundingClientRect().top<140)c=a});L.forEach(function(a){a.classList.toggle('on',a===c)})});
-document.getElementById('theme-toggle').addEventListener('click',tg);
 document.getElementById('run-bpe').addEventListener('click',bpe);
 document.getElementById('run-mask').addEventListener('click',mk);

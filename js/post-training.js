@@ -1,5 +1,4 @@
 const secs=[...document.querySelectorAll('section[data-t]')];
-document.getElementById('menu-toggle').addEventListener('click',()=>document.querySelector('nav').classList.toggle('open'));
 const toc=document.getElementById('toc');
 let done={};
 try{done=JSON.parse(localStorage.getItem('pt_done')||'{}')}catch(e){}

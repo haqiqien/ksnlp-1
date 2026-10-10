@@ -1,8 +1,7 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 // tema & progres
-$('#theme').onclick=()=>{const r=document.documentElement;r.dataset.t=r.dataset.t==='dark'?'':'dark'};
 addEventListener('scroll',()=>{const h=document.documentElement;$('#bar').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
- let cur='';$$('main section').forEach(s=>{if(s.getBoundingClientRect().top<150)cur=s.id});$$('nav a').forEach(a=>a.classList.toggle('on',a.hash==='#'+cur))});
+ let cur='';$$('main section').forEach(s=>{if(s.getBoundingClientRect().top<150)cur=s.id});$$('nav a:not(.home-link)').forEach(a=>a.classList.toggle('on',a.hash==='#'+cur))});
 // 1. next-word
 const W=[['on',.45],['off',.44],['in',.01],['at',.01],['too',.01],['...',.08]];
 function nw(){const k=+$('#k').value;$('#kv').textContent=k;

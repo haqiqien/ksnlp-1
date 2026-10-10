@@ -1,5 +1,8 @@
 const $=id=>document.getElementById(id);
 addEventListener('scroll',()=>{const h=document.documentElement;$('bar').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%'});
+const navLinks=[...document.querySelectorAll('nav a:not(.home-link)')];
+function markActiveSection(){let current='';navLinks.forEach(a=>{const section=document.querySelector(a.hash);if(section&&section.getBoundingClientRect().top<150)current=a.hash});navLinks.forEach(a=>a.classList.toggle('on',a.hash===current))}
+addEventListener('scroll',markActiveSection);markActiveSection();
 const fmt=n=>n.toLocaleString('id-ID');
 function calcP(){const V=+$('pv').value,H=+$('ph').value,e=V*H,w=H*H,o=H*V,t=e+w+o;
 $('pout').innerHTML=`E = ${fmt(e)} • Wʰ = ${fmt(w)} • Wᵒᵘᵗ = ${fmt(o)}<br><b>Total ≈ ${fmt(t)}</b> (E+Wᵒᵘᵗ = ${(100*(e+o)/t).toFixed(1)}% dari total). Jika LSTM: sekitar 4× pada bagian recurrent.`}
