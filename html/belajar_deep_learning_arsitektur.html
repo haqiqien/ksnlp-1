@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Belajar Arsitektur Deep Learning untuk NLP</title>
+<link rel="stylesheet" href="../css/arsitektur-nlp.css">
+<link rel="stylesheet" href="../css/material-common.css">
+</head>
+<body>
+<div id="bar"></div>
+<header><h1>Arsitektur Deep Learning untuk NLP</h1><p>RNN → LSTM/GRU → Seq2Seq → Attention → Transformer → GPT &amp; BERT</p></header>
+<nav>
+<a class="home-link" href="../index.html">← Beranda</a>
+<a href="#s1">1 Gambaran Besar</a><a href="#s2">2 RNN</a><a href="#s3">3 LSTM &amp; GRU</a><a href="#s4">4 Seq2Seq</a><a href="#s5">5 Attention</a><a href="#s6">6 Transformer</a><a href="#s7">7 GPT &amp; BERT</a><a href="#s8">8 Kuis</a>
+</nav>
+<main>
+
+<section id="s0">
+<h2>Peta Belajar</h2>
+<p>Materi ini <b>berantai</b>: setiap model lahir karena model sebelumnya punya kelemahan. Jadi jangan menghafal, tapi tanyakan di tiap bagian: <i>"Masalah apa yang diselesaikan? Masalah baru apa yang muncul?"</i></p>
+<table><tr><th>Model</th><th>Ide utama</th><th>Masalah yang tersisa</th></tr>
+<tr><td>RNN</td><td>Punya "ingatan" (hidden state)</td><td>Lupa konteks jauh, vanishing gradient, lambat (berurutan)</td></tr>
+<tr><td>LSTM/GRU</td><td>Gerbang (gate) mengatur ingatan</td><td>Masih berurutan, masih sulit untuk kalimat sangat panjang</td></tr>
+<tr><td>Seq2Seq</td><td>Encoder merangkum, decoder menghasilkan</td><td>Satu context vector = bottleneck</td></tr>
+<tr><td>Attention</td><td>Decoder boleh "melirik" semua posisi input</td><td>Masih bergantung pada RNN yang berurutan</td></tr>
+<tr><td>Transformer</td><td>Hanya attention, paralel, tanpa RNN</td><td>Biaya memori O(n²), butuh positional encoding</td></tr>
+</table>
+</section>
+
+<section id="s1">
+<h2>1. Gambaran Besar: NLP Tradisional vs Deep Learning</h2>
+<h3>NLP tradisional</h3>
+<p>Dokumen melewati <b>pipeline manual</b>: deteksi bahasa → tokenisasi → PoS tagging → stopword removal → ekstraksi fitur → model → hasil. Yang penting: <b>pipeline ini dibuat terpisah untuk tiap bahasa</b> (Inggris, Spanyol, Arab, dst.). Artinya banyak kerja tangan dan keahlian linguistik.</p>
+<h3>NLP berbasis deep learning</h3>
+<p>Setelah preprocessing sederhana, teks menjadi angka (vektor), lalu <b>jaringan saraf belajar sendiri fitur</b> yang berguna lewat banyak lapisan. Satu arsitektur bisa dipakai untuk banyak tugas: sentimen, klasifikasi, entity extraction, terjemahan, topic modelling.</p>
+<div class="box crit"><b>Catatan kritis</b>Deep learning bukan "lebih baik di segalanya". Ia butuh data besar dan komputasi mahal, serta sulit dijelaskan (black box). Untuk data kecil, metode tradisional kadang masih kompetitif dan lebih mudah diaudit.</div>
+</section>
+
+<section id="s2">
+<h2>2. Recurrent Neural Network (RNN)</h2>
+<h3>Intuisi</h3>
+<p>Bayangkan membaca kalimat kata demi kata sambil menulis <b>catatan ringkas di kepala</b>. Setiap kata baru, kamu memperbarui catatan itu. Catatan itu adalah <b>hidden state (hₜ)</b>. Di diagram, panah melingkar pada kotak "hidden" berarti hidden state dikirim kembali ke dirinya sendiri di langkah berikutnya.</p>
+<h3>Unrolling: loop dibuka menjadi rantai</h3>
+<svg viewBox="0 0 560 230" role="img" aria-label="RNN unrolled">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L6,3L0,6z" fill="#888"/></marker></defs>
+<g stroke="#555" stroke-width="1.5" fill="none" marker-end="url(#a)">
+<path d="M90 160V120"/><path d="M90 85V50"/><path d="M270 160V120"/><path d="M270 85V50"/><path d="M450 160V120"/><path d="M450 85V50"/>
+<path d="M130 102H220"/><path d="M310 102H400"/></g>
+<g stroke="#333" stroke-width="1.5">
+<rect x="50" y="165" width="80" height="35" rx="8" fill="#bdf5bd"/><rect x="230" y="165" width="80" height="35" rx="8" fill="#bdf5bd"/><rect x="410" y="165" width="80" height="35" rx="8" fill="#bdf5bd"/>
+<rect x="50" y="85" width="80" height="35" rx="8" fill="#bbbcff"/><rect x="230" y="85" width="80" height="35" rx="8" fill="#bbbcff"/><rect x="410" y="85" width="80" height="35" rx="8" fill="#bbbcff"/>
+<rect x="50" y="10" width="80" height="35" rx="8" fill="#f6b9b9"/><rect x="230" y="10" width="80" height="35" rx="8" fill="#f6b9b9"/><rect x="410" y="10" width="80" height="35" rx="8" fill="#f6b9b9"/></g>
+<g text-anchor="middle" font-size="15" style="fill:#000"><text x="90" y="188" fill="#000">x₀ "the"</text><text x="270" y="188" fill="#000">x₁ "quick"</text><text x="450" y="188" fill="#000">x₂ "brown"</text>
+<text x="90" y="108" fill="#000">h₀</text><text x="270" y="108" fill="#000">h₁</text><text x="450" y="108" fill="#000">h₂</text>
+<text x="90" y="33" fill="#000">y₀ quick</text><text x="270" y="33" fill="#000">y₁ brown</text><text x="450" y="33" fill="#000">y₂ fox</text>
+<text x="175" y="95" font-size="12">Wʰ</text><text x="355" y="95" font-size="12">Wʰ</text></g>
+</svg>
+<p>Contoh di slide: model <b>language modelling</b> (menebak kata berikutnya). Input "the" → tebak "quick"; input "quick" → tebak "brown"; dan seterusnya.</p>
+<h3>Tiga rumus inti</h3>
+<span class="f">xₜ = Emb(wₜ) = E·wₜ &nbsp;&nbsp;(kata → vektor)</span>
+<span class="f">hₜ = g( Wʰ·hₜ₋₁ + xₜ + bʰ ) &nbsp;&nbsp;(update ingatan)</span>
+<span class="f">y = softmax( Wᵒ·hₜ + bᵒ ) &nbsp;&nbsp;(probabilitas kata berikutnya)</span>
+<ul>
+<li><b>E</b>: tabel embedding, mengubah indeks kata jadi vektor.</li>
+<li><b>Wʰ</b>: seberapa besar ingatan lama ikut mempengaruhi ingatan baru.</li>
+<li><b>g</b>: fungsi aktivasi (biasanya tanh) agar model bisa non-linear.</li>
+<li><b>softmax</b>: mengubah skor menjadi probabilitas yang jumlahnya 1.</li>
+<li>Catatan: pada slide, xₜ langsung dijumlahkan karena embedding berdimensi H (input projection = H). Di banyak buku ada matriks Wˣ tambahan.</li>
+</ul>
+<h3>Ukuran parameter</h3>
+<table><tr><th>Parameter</th><th>Ukuran</th><th>Arti</th></tr>
+<tr><td>Embedding E</td><td>|V| × H</td><td>tiap kata punya vektor H dimensi</td></tr>
+<tr><td>Recurrent Wʰ</td><td>H × H</td><td>hidden → hidden</td></tr>
+<tr><td>Output Wᵒᵘᵗ</td><td>H × |V|</td><td>hidden → skor tiap kata kamus (K = |V|)</td></tr></table>
+<div class="demo"><b>Kalkulator parameter RNN</b><br>
+|V| (ukuran kosakata): <input type="number" id="pv" value="10000"> H (ukuran hidden): <input type="number" id="ph" value="256"> <button id="calc-params">Hitung</button>
+<div id="pout" style="margin-top:8px"></div></div>
+<p>Perhatikan: untuk kosakata besar, <b>E dan Wᵒᵘᵗ mendominasi</b> jumlah parameter, bukan Wʰ.</p>
+<h3>Backpropagation Through Time (BPTT)</h3>
+<ul>
+<li>Melatih RNN = melatih jaringan <b>sangat dalam</b> (satu lapis per timestep) dengan <b>parameter yang dipakai bersama</b> (tied).</li>
+<li>Dari x₀ ke y₂, Wʰ terpakai dua kali, jadi gradien melewati Wʰ berkali-kali.</li>
+<li>Jika nilai yang dikalikan &lt; 1 terus-menerus, gradien mengecil (<b>vanishing gradient</b>). Jika &gt; 1, membesar (<b>exploding gradient</b>).</li>
+<li>Akibatnya RNN sulit belajar <b>dependensi jarak jauh</b>. Solusi parsial: <b>truncated BPTT</b>, yaitu backprop hanya sampai T langkah ke belakang.</li></ul>
+<div class="demo"><b>Simulasi vanishing gradient</b><br>Faktor pengali per langkah: <input type="number" id="gf" value="0.8" step="0.05"> Jumlah langkah: <input type="number" id="gn" value="20"> <button id="calc-gradient">Hitung</button><div id="gout" class="output-gap"></div></div>
+<h3>Contoh: Sentiment Analysis ("I don't hate it")</h3>
+<p>Dua cara mengambil keputusan dari RNN: (a) pakai <b>hidden state terakhir h₃</b> sebagai ringkasan kalimat; (b) <b>jumlahkan semua hidden state</b> (sum/pooling) lalu klasifikasi. Cara (b) memberi jalan pintas gradien dan tidak bergantung pada ingatan satu titik saja.</p>
+<div class="box crit"><b>Catatan kritis</b>Kalimat "I don't hate it" menunjukkan kenapa urutan penting: "hate" negatif, tapi "don't" membalikkannya. Model <i>bag-of-words</i> bisa salah menilai, RNN lebih mungkin benar karena membaca berurutan. Kelemahan RNN: pemrosesan <b>harus berurutan</b>, tidak bisa diparalelkan di GPU, sehingga lambat untuk data besar.</div>
+</section>
+
+<section id="s3">
+<h2>3. LSTM dan GRU</h2>
+<p>LSTM (Long Short-Term Memory) menambahkan jalur khusus bernama <b>cell state (Cₜ)</b>, seperti "ban berjalan" yang membawa informasi jangka panjang dengan sedikit gangguan. Tiga <b>gate</b> (nilai 0–1 dari sigmoid σ) mengatur isi ban berjalan itu.</p>
+<table><tr><th>Gate</th><th>Pertanyaan yang dijawab</th><th>Analogi</th></tr>
+<tr><td><b>Forget gate (fₜ)</b></td><td>Bagian ingatan lama mana yang dibuang?</td><td>Menghapus catatan usang</td></tr>
+<tr><td><b>Input gate (iₜ)</b> + input modulation (gₜ)</td><td>Informasi baru apa yang disimpan?</td><td>Menulis catatan baru</td></tr>
+<tr><td><b>Output gate (oₜ)</b></td><td>Bagian ingatan mana yang ditampilkan sebagai hₜ?</td><td>Memilih yang dibicarakan sekarang</td></tr></table>
+<span class="f">Cₜ = fₜ ⊙ Cₜ₋₁ + iₜ ⊙ gₜ &nbsp;&nbsp;|&nbsp;&nbsp; hₜ = oₜ ⊙ tanh(Cₜ)</span>
+<p>(⊙ = perkalian elemen demi elemen.) Kunci mengatasi vanishing gradient: Cₜ diperbarui dengan <b>penjumlahan</b> dan perkalian gate, bukan perkalian matriks berulang, sehingga gradien bisa mengalir lebih jauh.</p>
+<p><b>Jumlah parameter ≈ 4× RNN</b> karena ada 4 blok transformasi (forget, input, modulation, output).</p>
+<h3>GRU (Gated Recurrent Unit)</h3>
+<ul><li>Ide mirip LSTM, tetapi <b>lebih sedikit gate</b> (reset &amp; update), jadi parameter lebih sedikit.</li>
+<li><b>Tidak ada cell state</b>, hanya hₜ yang diteruskan.</li>
+<li>Dalam praktik tidak ada perbedaan sistematis; slide menyebut orang lebih sering memakai LSTM.</li></ul>
+<table><tr><th></th><th>RNN</th><th>LSTM</th><th>GRU</th></tr>
+<tr><td>Gate</td><td>0</td><td>3 (+ modulation)</td><td>2</td></tr><tr><td>Cell state</td><td>Tidak</td><td>Ya</td><td>Tidak</td></tr>
+<tr><td>Parameter relatif</td><td>1×</td><td>≈4×</td><td>≈3×</td></tr><tr><td>Jarak dependensi</td><td>Pendek</td><td>Lebih panjang</td><td>Lebih panjang</td></tr></table>
+<div class="box crit"><b>Catatan kritis</b>Slide menulis LSTM "SOTA" (state-of-the-art). Itu benar pada masanya, namun sekarang sudah banyak digantikan Transformer. LSTM <i>memitigasi</i> (mengurangi), bukan <i>menghilangkan</i>, vanishing gradient, dan tetap berurutan sehingga sulit diparalelkan.</div>
+</section>
+
+<section id="s4">
+<h2>4. Encoder-Decoder (Seq2Seq)</h2>
+<p>Dipakai saat <b>input dan output sama-sama sequence</b> dengan panjang bisa berbeda, contohnya terjemahan mesin: "once upon a time" → "il était une fois".</p>
+<svg viewBox="0 0 560 170" role="img" aria-label="seq2seq">
+<defs><marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L6,3L0,6z" fill="#888"/></marker></defs>
+<g stroke="#333" stroke-width="1.5"><rect x="10" y="40" width="210" height="60" rx="10" fill="#c9e7c4"/><rect x="340" y="40" width="210" height="60" rx="10" fill="#c9e7c4"/><rect x="235" y="55" width="90" height="30" rx="8" fill="#f2b705"/></g>
+<g stroke="#555" fill="none" marker-end="url(#b)"><path d="M220 70H233"/><path d="M325 70H338"/></g>
+<g text-anchor="middle" font-size="13"><text x="115" y="75">Encoder (LSTM)</text><text x="445" y="75">Decoder (LSTM)</text><text x="280" y="75" style="fill:#000" font-size="11">context</text>
+<text x="115" y="130">once upon a time</text><text x="445" y="130">&lt;START&gt; il était une fois</text><text x="445" y="25">il était une fois &lt;END&gt;</text></g></svg>
+<ul><li><b>Encoder</b>: membaca kata satu per satu, lalu menghasilkan satu <b>context vector</b> (latent space) berukuran tetap, yaitu pasangan (hₜ, cₜ) terakhir.</li>
+<li><b>Decoder</b>: menerima context vector, lalu menghasilkan kata satu per satu. Input tiap langkah adalah kata yang <i>baru saja dihasilkan</i> (diawali token &lt;START&gt;, berhenti di &lt;END&gt;). Di akhir ada softmax atas kosakata.</li></ul>
+<div class="box crit"><b>Catatan kritis: bottleneck</b>Seluruh kalimat, panjang atau pendek, dipaksa masuk ke <b>satu vektor berukuran tetap</b>. Seperti meminta orang merangkum satu bab buku dalam satu kalimat lalu menerjemahkan hanya dari kalimat itu. Semakin panjang input, semakin banyak informasi hilang. Ini motivasi attention.</div>
+</section>
+
+<section id="s5">
+<h2>5. Attention Mechanism</h2>
+<h3>Masalah</h3>
+<p>Kalimat "<i>I like cats but I don't like dogs</i>" punya bagian berbeda dengan makna berbeda (suka kucing, tidak suka anjing). Jika semuanya dilebur menjadi satu vektor, detail bisa tercampur.</p>
+<h3>Solusi</h3>
+<p>Jangan hanya pakai output terakhir encoder. Simpan <b>semua output encoder hᵢ</b>, lalu biarkan decoder memilih (<i>attend</i>) bagian yang paling relevan untuk langkah saat ini. Pemilihan dipandu oleh <b>context c</b> (misalnya state decoder saat ini).</p>
+<h3>Tiga langkah</h3>
+<ol><li><b>Skor</b>: <code>eᵢ = f_att({hᵢ}, c)</code> mengukur kecocokan tiap hᵢ dengan c. f_att bisa cosine similarity, dot product, atau jaringan kecil.</li>
+<li><b>Normalisasi</b>: <code>αᵢ = exp(eᵢ) / Σₖ exp(eₖ)</code> (softmax), semua αᵢ positif dan jumlahnya 1.</li>
+<li><b>Rata-rata berbobot</b>: <code>z = Σᵢ αᵢ·hᵢ</code>, vektor konteks baru yang didominasi hᵢ yang relevan.</li></ol>
+<p>Ini disebut <b>soft selection</b>: bukan memilih satu secara kaku (argmax, tidak bisa diturunkan), tetapi campuran berbobot yang <b>differentiable</b>, sehingga bisa dilatih dengan backpropagation.</p>
+<div class="demo"><b>Demo softmax attention</b><br>Atur skor kecocokan tiga posisi (e₁, e₂, e₃):<br>
+e₁ <input type="range" id="e1" min="-3" max="8" step=".1" value="3"> e₂ <input type="range" id="e2" min="-3" max="8" step=".1" value="1"> e₃ <input type="range" id="e3" min="-3" max="8" step=".1" value="0">
+<div id="smout"></div><small>Perhatikan: selisih kecil pada skor bisa menjadi perbedaan bobot yang besar karena eksponen. Itu sebabnya softmax "fokus pada sedikit item".</small></div>
+<h3>Membaca heatmap attention (Bahdanau et al., 2014)</h3>
+<p>Baris = kata terjemahan Prancis, kolom = kata Inggris. Sel terang = perhatian tinggi. Garis diagonal berarti urutan kata mirip. Menariknya, pada "European Economic Area → la zone économique européenne" model <b>membalik urutan</b> kata sifat dan kata benda dengan benar. Model belajar <i>alignment</i> sendiri tanpa diajari.</p>
+<p><b>GNMT</b> (Google Neural Machine Translation, 2016): encoder 8 lapis LSTM (lapis bawah bidirectional), decoder 8 lapis LSTM, <b>residual connection</b> antar lapis, attention menghubungkan keduanya, dilatih pada banyak GPU.</p>
+<div class="box crit"><b>Catatan kritis</b>Attention sering dianggap "penjelasan" model, tapi bobot attention <b>tidak selalu</b> sama dengan alasan sebenarnya model memutuskan sesuatu. Gunakan sebagai petunjuk, bukan bukti. Selain itu, pada Seq2Seq+attention, encoder dan decoder tetap RNN yang berurutan.</div>
+</section>
+
+<section id="s6">
+<h2>6. Transformer ("Attention Is All You Need", 2017)</h2>
+<p>Ide radikal: <b>buang RNN sepenuhnya</b>, pakai hanya attention. Keuntungan: semua posisi diproses <b>paralel</b> (cepat di GPU) dan setiap token bisa langsung terhubung ke token mana pun dalam satu langkah (jarak dependensi = 1, bukan n).</p>
+<h3>6.1 Self-Attention: Query, Key, Value</h3>
+<p>Tiap token xᵢ diproyeksikan menjadi tiga vektor lewat tiga matriks bobot yang dipelajari:</p>
+<ul><li><b>Query (Q)</b>: "apa yang sedang saya cari?"</li><li><b>Key (K)</b>: "apa yang saya tawarkan/label saya?"</li><li><b>Value (V)</b>: "isi informasi yang saya bawa jika dipilih."</li></ul>
+<p>Analogi: mencari di perpustakaan. Query = kata kunci pencarianmu, Key = label di punggung buku, Value = isi buku.</p>
+<span class="f">Attention(Q, K, V) = softmax( Q·Kᵀ / √dₖ ) · V</span>
+<ol><li><b>MatMul Q·Kᵀ</b>: skor kemiripan tiap pasangan token.</li><li><b>Scale ÷√dₖ</b>: menjaga skor tidak terlalu besar.</li><li><b>Mask (opsional)</b>: menutup posisi yang tidak boleh dilihat.</li><li><b>Softmax</b>: skor → bobot (jumlah 1).</li><li><b>MatMul dengan V</b>: campuran berbobot dari value.</li></ol>
+<h3>Mengapa dibagi √dₖ?</h3>
+<p>Dot product dari vektor berdimensi dₖ punya ukuran yang tumbuh seiring dₖ (variansnya ≈ dₖ jika elemen bervariasi 1). Skor besar membuat softmax <b>jenuh</b> (satu bobot ≈ 1, lainnya ≈ 0), dan gradiennya hampir nol sehingga model sulit belajar. Pembagian √dₖ menormalkan skala.</p>
+<div class="demo"><b>Demo efek scaling</b><br>Skor mentah dibuat membesar sesuai dₖ. dₖ: <select id="dk"><option>4</option><option>64</option><option selected>256</option><option>1024</option></select>
+<div id="scout"></div></div>
+<h3>6.2 Demo interaktif: siapa yang diperhatikan "ia"?</h3>
+<div class="demo"><p>Klik sebuah kata untuk melihat bobot attention-nya (bobot ilustrasi buatan, bukan dari model asli).</p><div id="toks"></div><div id="attout"></div>
+<small>Pada kata "ia", bobot terbesar ke "Hewan": inilah <b>resolusi koreferensi</b>. Contoh asli di slide: "The animal didn't cross the street because <i>it</i> was too tired".</small></div>
+<h3>6.3 Multi-Head Attention</h3>
+<p>Satu attention hanya bisa menangkap satu jenis hubungan. Maka dipakai <b>h head paralel</b>, masing-masing dengan proyeksi Q, K, V sendiri. Satu head bisa fokus pada hubungan sintaksis (subjek-kata kerja), lainnya pada koreferensi, lainnya pada kata yang berdekatan. Hasil semua head di-<b>concat</b> lalu dilewatkan <b>Linear</b>. Pada slide "Nobel committee awards Strickland who advanced optics", tiap head menghasilkan pola attention berbeda.</p>
+<h3>6.4 Positional Encoding</h3>
+<p>Self-attention memperlakukan input sebagai <b>himpunan</b>: "anjing gigit orang" dan "orang gigit anjing" tampak sama. Solusi: <b>tambahkan</b> vektor posisi ke embedding kata (Token Embedding + Position Embedding). Bisa <b>sinusoidal</b> (rumus tetap, gambar heatmap di bawah) atau <b>dipelajari</b> (learned).</p>
+<span class="f">PE(pos, 2i) = sin(pos / 10000^(2i/d)) &nbsp;|&nbsp; PE(pos, 2i+1) = cos(pos / 10000^(2i/d))</span>
+<canvas id="pe" width="520" height="150" style="max-width:100%;border:1px solid var(--bd)"></canvas>
+<p><small>Sumbu x = dimensi, sumbu y = posisi. Dimensi awal berubah cepat (frekuensi tinggi), dimensi akhir lambat.</small></p>
+<h3>6.5 Komponen blok Transformer</h3>
+<table><tr><th>Komponen</th><th>Fungsi</th></tr>
+<tr><td>Multi-Head Attention</td><td>Menukar informasi antar token</td></tr>
+<tr><td>Feed Forward</td><td>Jaringan kecil yang sama dipakai pada tiap posisi, memproses informasi tiap token</td></tr>
+<tr><td>Add &amp; Norm</td><td>Residual connection (x + sublayer(x)) + layer normalization, agar pelatihan stabil &amp; dalam</td></tr>
+<tr><td>Linear + Softmax (akhir)</td><td>Mengubah output decoder menjadi probabilitas kata</td></tr>
+<tr><td>Tumpukan N×</td><td>Encoder dan decoder masing-masing N lapis</td></tr></table>
+<h3>6.6 Tiga jenis attention (soal kuis)</h3>
+<table><tr><th></th><th>Self-attention encoder</th><th>Masked self-attention decoder</th><th>Encoder-decoder attention</th></tr>
+<tr><td>Q berasal dari</td><td>Encoder (lapis sebelumnya)</td><td>Decoder</td><td>Decoder</td></tr>
+<tr><td>K, V berasal dari</td><td>Encoder (sama)</td><td>Decoder (sama)</td><td><b>Output akhir encoder</b></td></tr>
+<tr><td>Boleh melihat</td><td>Semua token input (dua arah)</td><td>Hanya token saat ini &amp; sebelumnya</td><td>Semua posisi input</td></tr>
+<tr><td>Tujuan</td><td>Memahami konteks input</td><td>Menyusun output tanpa curang</td><td>Menghubungkan output dengan input (seperti attention pada Seq2Seq)</td></tr></table>
+<h3>Mengapa masking diperlukan pada decoder?</h3>
+<p>Saat <b>training</b>, seluruh kalimat target diberikan sekaligus agar paralel (teacher forcing). Tanpa mask, saat memprediksi kata ke-3 decoder bisa <b>mengintip kata ke-4</b> dan tinggal menyalinnya, jadi loss kecil tapi model tidak belajar menebak. Saat <b>inference</b>, kata masa depan memang belum ada. Mask (diisi −∞ sebelum softmax sehingga bobotnya 0) membuat kondisi training sama dengan inference: hanya melihat masa lalu (<b>autoregressive</b>).</p>
+<div class="demo"><b>Demo mask</b> <button id="mask-on">Dengan mask</button> <button class="alt" id="mask-off">Tanpa mask</button>
+<div id="mask" class="grid" style="grid-template-columns:70px repeat(5,1fr)"></div><small>Baris = token yang sedang "bertanya", kolom = token yang boleh dilihat. Abu-abu = diblokir.</small></div>
+<div class="box crit"><b>Catatan kritis</b>(1) Self-attention menghitung semua pasangan token: biaya waktu &amp; memori <b>O(n²)</b>, mahal untuk teks sangat panjang. (2) Tanpa positional encoding, Transformer buta urutan. (3) Transformer tidak otomatis "memahami"; ia kuat karena skala data dan paralelisme. Baca juga <a href="https://jalammar.github.io/illustrated-transformer/" target="_blank" rel="noopener">The Illustrated Transformer</a>.</div>
+</section>
+
+<section id="s7">
+<h2>7. Turunan Transformer: GPT dan BERT</h2>
+<table><tr><th></th><th>Transformer asli</th><th>GPT</th><th>BERT</th></tr>
+<tr><td>Bagian dipakai</td><td>Encoder + Decoder</td><td>Decoder-only</td><td>Encoder-only</td></tr>
+<tr><td>Arah konteks</td><td>-</td><td>Satu arah (kiri→kanan, masked)</td><td>Dua arah</td></tr>
+<tr><td>Cocok untuk</td><td>Terjemahan</td><td>Generasi teks</td><td>Pemahaman: klasifikasi, NER, QA</td></tr></table>
+<h3>BERT: pre-training lalu fine-tuning</h3>
+<ul><li><b>Pre-training</b> pada teks tanpa label: <b>Masked LM</b> (sebagian token ditutup, model menebaknya) dan <b>NSP</b> (Next Sentence Prediction: apakah kalimat B mengikuti kalimat A). Token khusus: [CLS] (ringkasan kalimat) dan [SEP] (pemisah).</li>
+<li><b>Fine-tuning</b>: model yang sama disesuaikan untuk tugas berlabel, seperti MNLI (inferensi), NER, SQuAD (tanya-jawab: memprediksi awal/akhir span jawaban).</li></ul>
+<div class="box"><b>Intinya</b>Belajar bahasa umum sekali dari data besar tanpa label, lalu adaptasi murah ke banyak tugas. Inilah paradigma <b>transfer learning</b> di NLP.</div>
+<div class="box crit"><b>Catatan kritis</b>Slide memberi tanda * : arsitektur GPT/BERT sebenarnya bervariasi. Misalnya, NSP kemudian terbukti kurang berguna (RoBERTa membuangnya). Jangan anggap diagram slide sebagai spesifikasi persis.</div>
+</section>
+
+<section id="s8">
+<h2>8. Kuis dan Ringkasan</h2>
+<div id="quiz"></div>
+<details><summary>Jawaban soal kuis slide (uraian)</summary><p>Self-attention encoder: tiap token input melihat semua token input. Masked self-attention decoder: tiap token output hanya melihat token sebelumnya agar tidak menyontek masa depan. Encoder-decoder attention: Query dari decoder, Key/Value dari output encoder, menghubungkan output dengan input. Masking perlu agar training (paralel) konsisten dengan inference (autoregresif).</p></details>
+<h3>Ringkasan satu kalimat per model</h3>
+<ul><li><b>RNN</b>: ingatan lewat hidden state; sulit jarak jauh.</li><li><b>LSTM/GRU</b>: gate mengatur ingatan; lebih tahan vanishing gradient.</li><li><b>Seq2Seq</b>: encoder merangkum, decoder menghasilkan; bottleneck.</li><li><b>Attention</b>: decoder melihat semua output encoder dengan bobot softmax.</li><li><b>Transformer</b>: hanya attention + paralel + positional encoding.</li><li><b>GPT/BERT</b>: decoder-only generatif / encoder-only pemahaman.</li></ul>
+<div class="box"><b>Tips belajar</b>Tutup halaman, lalu jelaskan ulang alur "masalah → solusi → masalah baru" dengan kata sendiri. Hitung manual self-attention dengan 3 token berdimensi 2.</div>
+</section>
+</main>
+<footer>Dibuat dari slide "Deep Learning Model Architectures" (UGM) • Semoga sukses belajarnya!</footer>
+
+<script src="../js/arsitektur-nlp.js" defer></script>
+</body>
+</html>

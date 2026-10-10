@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Belajar Pretraining & Finetuning</title>
+<link rel="stylesheet" href="../css/pretraining-finetuning.css">
+<link rel="stylesheet" href="../css/material-common.css">
+</head>
+<body>
+<nav id="nav"><a class="home-link" href="../index.html">← Beranda</a><b>Daftar isi</b>
+<a href="#s0">0. Peta besar</a><a href="#s1">1. Mengapa pretraining</a><a href="#s2">2. Subword &amp; BPE</a><a href="#s3">3. Embedding → whole model</a><a href="#s4">4. Pretrain → Finetune</a><a href="#s5">5. Tiga arsitektur</a><a href="#s6">6. Encoder (BERT)</a><a href="#s7">7. Encoder-Decoder (T5)</a><a href="#s8">8. Decoder (GPT)</a><a href="#s9">9. In-context &amp; scaling</a><a href="#s10">10. Apa yang dipelajari</a><a href="#s11">11. Kuis</a><a href="#s12">12. Rangkuman</a>
+<button id="theme-toggle">Ganti tema</button></nav>
+<main>
+<h1>Pretraining &amp; Finetuning</h1>
+<p class="sub">Catatan belajar dari slide W4 (adaptasi Stanford CS224N, Diyi Yang). Setiap bagian punya penjelasan sederhana, contoh, dan kotak <b>Pikir kritis</b> supaya kamu tidak sekadar menghafal.</p>
+
+<section id="s0"><h2>0. Peta besar: satu cerita utuh</h2>
+<p>Bayangkan seorang siswa. Sebelum kuliah spesialis, ia membaca <b>ribuan buku umum</b> sampai paham bahasa, fakta, dan cara orang bernalar (<b>pretraining</b>). Lalu ia diberi <b>sedikit latihan khusus</b> untuk satu profesi (<b>finetuning</b>). Hasilnya jauh lebih baik daripada siswa yang langsung belajar profesi dari nol.</p>
+<svg viewBox="0 0 720 150" role="img" aria-label="Alur pretraining ke finetuning">
+<rect x="10" y="40" width="150" height="70" rx="10" fill="var(--enc)"/><text x="85" y="70" text-anchor="middle" font-size="14">Teks mentah</text><text x="85" y="90" text-anchor="middle" font-size="12">tanpa label, sangat besar</text>
+<path d="M165 75h60" stroke="var(--tx)" stroke-width="2"/><text x="195" y="65" text-anchor="middle" font-size="11">pretrain</text>
+<rect x="230" y="30" width="170" height="90" rx="10" fill="var(--dec)"/><text x="315" y="70" text-anchor="middle" font-size="14">Model dasar</text><text x="315" y="90" text-anchor="middle" font-size="12">paham bahasa secara umum</text>
+<path d="M405 75h60" stroke="var(--tx)" stroke-width="2"/><text x="435" y="65" text-anchor="middle" font-size="11">finetune</text>
+<rect x="470" y="40" width="240" height="70" rx="10" fill="var(--enc)"/><text x="590" y="70" text-anchor="middle" font-size="14">Tugas spesifik</text><text x="590" y="90" text-anchor="middle" font-size="12">sentimen, QA, ringkasan, dll.</text></svg>
+<p>Urutan materi: (1) kenapa ini penting, (2) cara memotong kata, (3) dari embedding ke model utuh, (4) tiga jenis arsitektur, (5) model raksasa dan scaling, (6) apa yang dipelajari, termasuk sisi buruknya.</p></section>
+
+<section id="s1"><h2>1. Mengapa pretraining? (Motivasi)</h2>
+<p>Slide menunjukkan grafik: di banyak benchmark (SQuAD, GLUE, SuperGLUE), skor model naik tajam dan menyusul manusia setelah model bahasa pretrained muncul sekitar 2018. Jadi pretraining bukan sekadar trik kecil, tetapi perubahan besar cara membangun sistem NLP.</p>
+<h3>Tiga ide kunci</h3>
+<ul>
+<li><b>Model harus bisa memproses data besar dan beragam.</b> Semakin luas bacaannya, semakin umum pengetahuannya.</li>
+<li><b>Jangan pakai data berlabel.</b> Memberi label itu mahal dan lambat (manusia harus menandai satu per satu). Teks internet gratis dan tak terbatas, jadi bisa di-<i>scale</i>.</li>
+<li><b>Scaling sadar compute.</b> Ukuran model dan jumlah data harus seimbang dengan komputasi yang tersedia (dibahas di bagian 9).</li></ul>
+<div class="box"><b>Contoh:</b> kalimat <code>Universitas Gadjah Mada berlokasi di ___, Indonesia</code> tidak butuh label manusia. Jawabannya (Yogyakarta) sudah ada di teks aslinya. Kalimat itu sendiri adalah "soal sekaligus kunci jawaban".</div>
+<div class="box crit"><b>Pikir kritis:</b> Slide menyebut "unsupervised", tetapi istilah yang lebih tepat adalah <b>self-supervised</b>: labelnya dibuat otomatis dari teks itu sendiri. Juga, grafik "menyusul manusia" perlu hati-hati: skor benchmark tinggi tidak berarti model memahami bahasa seperti manusia. Benchmark bisa "jenuh" dan model bisa mengandalkan pola dangkal.</div></section>
+
+<section id="s2"><h2>2. Subword modeling dan Byte-Pair Encoding (BPE)</h2>
+<h3>Masalah: kosakata tetap</h3>
+<p>Model lama memakai kosakata tetap (puluhan ribu kata dari data latih). Kata yang tidak dikenal diubah menjadi satu token <code>UNK</code> (unknown). Akibatnya:</p>
+<table><tr><th>Kata</th><th>Jenis</th><th>Pada sistem lama</th></tr>
+<tr><td>hat, learn</td><td>Kata umum</td><td>Punya embedding sendiri</td></tr>
+<tr><td>taaaaasty</td><td>Variasi</td><td>UNK (informasi hilang, padahal mirip "tasty")</td></tr>
+<tr><td>laern</td><td>Typo</td><td>UNK</td></tr>
+<tr><td>Transformerify</td><td>Kata baru</td><td>UNK</td></tr></table>
+<h3>Solusi: pecah kata menjadi potongan (subword)</h3>
+<p>Kata umum tetap utuh, kata langka dipecah menjadi potongan yang dikenal. Contoh dari slide: <code>taaaaasty → taa## aaa## sty</code>, <code>laern → la## ern##</code>, <code>Transformerify → Transformer## ify</code>. Dalam kasus terburuk kata dipecah menjadi huruf per huruf, jadi <b>tidak pernah ada UNK</b>.</p>
+<h3>Algoritma BPE (langkah demi langkah)</h3>
+<ol><li>Mulai dengan kosakata berisi semua karakter (plus simbol akhir kata).</li>
+<li>Hitung pasangan simbol bertetangga yang paling sering muncul di korpus.</li>
+<li>Gabungkan pasangan itu menjadi simbol baru, tambahkan ke kosakata.</li>
+<li>Ulangi sampai ukuran kosakata yang diinginkan tercapai.</li></ol>
+<p>Contoh slide: korpus <code>A B D C A B E C A B</code>. Pasangan (A,B) paling sering, jadi digabung jadi <code>AB</code>. Lalu pasangan (C,AB) paling sering, jadi <code>CAB</code>.</p>
+<h3>Coba sendiri</h3>
+<p>Ketik kata-kata (pisahkan dengan spasi), pilih jumlah penggabungan, lalu lihat hasilnya.</p>
+<input id="bin" value="low low low lower lower newest newest newest widest" size="40" aria-label="Korpus">
+<input id="bn" type="number" min="0" max="20" value="4" style="width:70px" aria-label="Jumlah merge">
+<button class="b" id="run-bpe">Jalankan BPE</button>
+<div id="bout" style="margin-top:10px"></div>
+<div class="box"><b>Catatan:</b> BPE awalnya dipakai di terjemahan mesin (Sennrich 2016). WordPiece (dipakai BERT) mirip, bedanya memilih gabungan berdasarkan kemungkinan data, bukan sekadar frekuensi. Tanda <code>##</code> artinya "lanjutan dari potongan sebelumnya".</div>
+<div class="box crit"><b>Pikir kritis:</b> Potongan subword tidak selalu bermakna ("kadang intuitif, kadang tidak", kata slide). Kata yang sama di bahasa berbeda bisa dipecah jauh lebih panjang, sehingga bahasa dengan data sedikit (misalnya bahasa daerah) butuh lebih banyak token dan lebih mahal diproses. Tokenizer juga ikut menentukan apa yang mudah atau sulit dipelajari model, misalnya aritmetika atau ejaan.</div></section>
+
+<section id="s3"><h2>3. Dari word embedding ke pretraining seluruh model</h2>
+<table><tr><th></th><th>Dulu (sekitar 2017)</th><th>Sekarang</th></tr>
+<tr><td>Yang dipretrain</td><td>Hanya lapisan embedding kata</td><td>Hampir semua parameter</td></tr>
+<tr><td>Konteks</td><td>Embedding tanpa konteks; konteks dipelajari LSTM/Transformer saat latih tugas</td><td>Konteks sudah dipelajari saat pretraining</td></tr>
+<tr><td>Parameter acak</td><td>Sebagian besar (di atas embedding)</td><td>Hampir tidak ada</td></tr></table>
+<svg viewBox="0 0 700 190" role="img" aria-label="Perbandingan pretrain embedding saja dan seluruh model">
+<text x="170" y="18" text-anchor="middle" font-size="14" font-weight="bold">Dulu</text><text x="520" y="18" text-anchor="middle" font-size="14" font-weight="bold">Sekarang</text>
+<rect x="60" y="30" width="220" height="80" rx="8" fill="#9aa5a0"/><text x="170" y="75" text-anchor="middle" font-size="13" fill="#000">LSTM/Transformer (acak)</text>
+<rect x="60" y="120" width="220" height="40" rx="8" fill="#e04b4b"/><text x="170" y="145" text-anchor="middle" font-size="13" fill="#fff">Embedding (pretrained)</text>
+<rect x="410" y="30" width="220" height="80" rx="8" fill="#e04b4b"/><text x="520" y="75" text-anchor="middle" font-size="13" fill="#fff">Seluruh jaringan (pretrained)</text>
+<rect x="410" y="120" width="220" height="40" rx="8" fill="#e04b4b"/><text x="520" y="145" text-anchor="middle" font-size="13" fill="#fff">Embedding (pretrained)</text>
+<text x="350" y="182" text-anchor="middle" font-size="12">kata "movie" pada model lama: embedding sama di kalimat apa pun</text></svg>
+<h3>Dua masalah pendekatan lama</h3>
+<ul><li>Data tugas (misalnya QA) harus cukup besar untuk mengajarkan <b>semua</b> aspek konteks bahasa. Biasanya tidak cukup.</li>
+<li>Sebagian besar parameter mulai dari acak, jadi belajar dari nol.</li></ul>
+<p>Prinsip baru: <b>sembunyikan sebagian input, latih model menebaknya</b>. Hasilnya tiga hal: representasi bahasa yang kuat, inisialisasi parameter yang bagus, dan distribusi probabilitas bahasa yang bisa di-sampling (untuk menghasilkan teks).</p>
+<div class="box"><b>Analogi:</b> embedding statis seperti kamus: "bank" punya satu arti vektor. Model kontekstual seperti pembaca: ia melihat "bank sungai" vs "bank tabungan" dan memberi representasi berbeda.</div></section>
+
+<section id="s4"><h2>4. Paradigma Pretrain → Finetune</h2>
+<h3>Language modeling sebagai tugas pretraining</h3>
+<p>Model memprediksi kata berikutnya: <code>p(w<sub>t</sub> | w<sub>1..t-1</sub>)</code>. Contoh slide: input "Iroh goes to make tasty tea" → output "goes to make tasty tea END". Datanya sangat melimpah (teks bahasa Inggris di internet).</p>
+<table><tr><th>Langkah</th><th>Data</th><th>Tujuan</th></tr>
+<tr><td><b>1. Pretrain</b></td><td>Teks sangat banyak, tanpa label</td><td>Belajar hal umum tentang bahasa</td></tr>
+<tr><td><b>2. Finetune</b></td><td>Sedikit data berlabel (misalnya ulasan positif/negatif)</td><td>Menyesuaikan model ke tugas</td></tr></table>
+<p>Pretraining itu mahal (BERT: 64 chip TPU selama 4 hari), tetapi finetuning murah dan bisa di satu GPU. Semboyannya: <b>"pretrain sekali, finetune berkali-kali"</b>.</p>
+<h3>Dari mana datanya?</h3>
+<table><tr><th>Model</th><th>Data latih</th></tr><tr><td>BERT</td><td>BookCorpus, Wikipedia Inggris</td></tr><tr><td>GPT-1</td><td>BookCorpus</td></tr><tr><td>GPT-3</td><td>CommonCrawl, WebText, Wikipedia, 2 database buku</td></tr><tr><td>GPT-3.5+</td><td>Tidak diungkap</td></tr></table>
+<p>The Pile (di slide) adalah kumpulan data terbuka: akademik (PubMed, ArXiv), internet (Pile-CC, OpenWebText2), prosa/buku, dialog (subtitle, IRC), dan lain-lain (GitHub).</p>
+<div class="box crit"><b>Pikir kritis (hak cipta dan etika):</b> BookCorpus diambil dari e-book di Smashwords, dan ini kontroversial karena banyak penulis tidak diminta izin. Slide menyebut berita Google memakai 11.000 novel, gugatan terhadap generator gambar, Copilot, dan New York Times vs OpenAI/Microsoft. Pertanyaan "apakah ini fair use?" belum final. Selain itu, ketika perusahaan tidak mengungkap data latih (GPT-3.5+), peneliti sulit menilai bias dan kebocoran data. Dan data internet didominasi bahasa Inggris, sehingga model cenderung lebih baik di sana.</div></section>
+
+<section id="s5"><h2>5. Tiga jenis arsitektur</h2>
+<p>Arsitektur menentukan cara pretraining dan penggunaan yang cocok. Kuncinya satu pertanyaan: <b>apakah model boleh melihat kata di sebelah kanan (masa depan)?</b></p>
+<table><tr><th>Arsitektur</th><th>Melihat masa depan?</th><th>Pretraining</th><th>Contoh</th><th>Cocok untuk</th></tr>
+<tr><td><b>Encoder</b></td><td>Ya (dua arah)</td><td>Masked LM</td><td>BERT, RoBERTa, SpanBERT</td><td>Klasifikasi, memahami teks</td></tr>
+<tr><td><b>Encoder-Decoder</b></td><td>Encoder ya, decoder tidak</td><td>Span corruption</td><td>T5</td><td>Terjemahan, ringkasan, QA</td></tr>
+<tr><td><b>Decoder</b></td><td>Tidak (kiri ke kanan)</td><td>Language modeling</td><td>GPT</td><td>Menghasilkan teks</td></tr></table>
+<svg viewBox="0 0 700 120" role="img" aria-label="Pola atensi tiga arsitektur">
+<text x="110" y="16" text-anchor="middle" font-size="13" font-weight="bold">Encoder</text><text x="350" y="16" text-anchor="middle" font-size="13" font-weight="bold">Encoder-Decoder</text><text x="590" y="16" text-anchor="middle" font-size="13" font-weight="bold">Decoder</text>
+<g fill="var(--enc)"><rect x="40" y="30" width="30" height="20"/><rect x="85" y="30" width="30" height="20"/><rect x="130" y="30" width="30" height="20"/><rect x="40" y="85" width="30" height="20"/><rect x="85" y="85" width="30" height="20"/><rect x="130" y="85" width="30" height="20"/><rect x="270" y="75" width="30" height="20"/><rect x="310" y="75" width="30" height="20"/></g>
+<g fill="var(--dec)"><rect x="370" y="35" width="30" height="20"/><rect x="410" y="35" width="30" height="20"/><rect x="450" y="35" width="30" height="20"/><rect x="520" y="30" width="30" height="20"/><rect x="565" y="30" width="30" height="20"/><rect x="610" y="30" width="30" height="20"/><rect x="520" y="85" width="30" height="20"/><rect x="565" y="85" width="30" height="20"/><rect x="610" y="85" width="30" height="20"/></g>
+<g stroke="var(--tx)" stroke-width="1"><path d="M55 85L55 50M55 85L100 50M55 85L145 50M100 85L55 50M100 85L100 50M100 85L145 50M145 85L55 50M145 85L100 50M145 85L145 50"/><path d="M285 75L385 55M325 75L385 55M285 75L425 55M325 75L425 55M285 75L465 55M325 75L465 55"/><path d="M535 85L535 50M535 85L580 50M535 85L625 50M580 85L580 50M580 85L625 50M625 85L625 50"/></g>
+<text x="350" y="116" text-anchor="middle" font-size="11">garis = siapa boleh "melihat" siapa</text></svg></section>
+
+<section id="s6"><h2>6. Encoder: BERT</h2>
+<h3>Masalah: encoder tidak bisa language modeling biasa</h3>
+<p>Kalau model boleh melihat kata berikutnya, menebak kata berikutnya jadi "mencontek". Solusinya: <b>Masked LM</b>. Ganti sebagian kata dengan <code>[MASK]</code>, lalu tebak kata asli. Loss hanya dihitung pada kata yang ditutup.</p>
+<p>Rumus slide: <code>h<sub>1..T</sub> = Encoder(w<sub>1..T</sub>)</code>, <code>y<sub>i</sub> ~ A·h<sub>i</sub> + b</code>. Artinya, tiap posisi punya vektor tersembunyi h, lalu satu lapisan linear (A, b) mengubahnya menjadi tebakan kata.</p>
+<h3>Aturan 15% dan 80/10/10</h3>
+<table><tr><th>Dari 15% token yang dipilih</th><th>Perlakuan</th><th>Alasan</th></tr>
+<tr><td>80%</td><td>Diganti <code>[MASK]</code></td><td>Tugas utama menebak</td></tr>
+<tr><td>10%</td><td>Diganti kata acak</td><td>Model tidak boleh percaya semua kata di input benar</td></tr>
+<tr><td>10%</td><td>Dibiarkan asli (tetap ditebak)</td><td>Model harus membangun representasi bagus untuk <b>semua</b> kata</td></tr></table>
+<p>Alasan penting: saat finetuning <b>tidak ada [MASK]</b>. Kalau model hanya pernah melihat [MASK] saat pretraining, ada ketidakcocokan antara pretraining dan penggunaan nyata. Trik 80/10/10 mengurangi masalah itu.</p>
+<h3>Simulasi masking</h3>
+<input id="min" value="saya pergi ke toko untuk membeli buku baru" size="40" aria-label="Kalimat">
+<button class="b" id="run-mask">Terapkan masking</button>
+<div id="mout" style="margin-top:10px"></div>
+<p class="sub">Karena kalimat pendek, 15% bisa jadi hanya 1 kata. Klik berkali-kali untuk melihat variasi 80/10/10.</p>
+<h3>Detail BERT</h3>
+<table><tr><th></th><th>BERT-base</th><th>BERT-large</th></tr><tr><td>Layer</td><td>12</td><td>24</td></tr><tr><td>Hidden state</td><td>768</td><td>1024</td></tr><tr><td>Attention head</td><td>12</td><td>16</td></tr><tr><td>Parameter</td><td>110 juta</td><td>340 juta</td></tr></table>
+<p>Data: BooksCorpus (800 juta kata) dan Wikipedia Inggris (2.500 juta kata). Input berupa dua potongan teks dengan token <code>[CLS]</code> dan <code>[SEP]</code>, ditambah embedding segmen dan posisi. BERT juga dilatih <b>Next Sentence Prediction</b> (apakah potongan B mengikuti A atau acak).</p>
+<h3>Hasil</h3>
+<p>Setelah finetuning, BERT-large mencapai rata-rata <b>82,1</b> pada benchmark GLUE, di atas OpenAI GPT (75,1) dan SOTA sebelumnya (74,0). Tugasnya: QQP (pasangan pertanyaan mirip), QNLI/RTE/MNLI (inferensi bahasa), SST-2 (sentimen), CoLA (apakah kalimat gramatikal), STS-B (kemiripan makna), MRPC (parafrase).</p>
+<h3>Batasan dan turunan</h3>
+<ul><li><b>Tidak cocok untuk generasi</b> kata per kata (autoregresif). Menutup satu kata menghasilkan banyak kandidat (make/brew/craft), bukan kalimat utuh.</li>
+<li><b>RoBERTa:</b> latih lebih lama, data lebih banyak (16GB → 160GB), buang NSP. Skor naik tanpa mengubah arsitektur.</li>
+<li><b>SpanBERT:</b> tutup rentang kata berurutan, tugas lebih sulit dan lebih berguna.</li></ul>
+<table><tr><th>Model</th><th>Data</th><th>Steps</th><th>SQuAD v1.1/2.0</th><th>MNLI-m</th><th>SST-2</th></tr>
+<tr><td>BERT-large</td><td>13GB</td><td>1M</td><td>90,9/81,8</td><td>86,6</td><td>93,7</td></tr>
+<tr><td>RoBERTa (Books+Wiki)</td><td>16GB</td><td>100K</td><td>93,6/87,3</td><td>89,0</td><td>95,3</td></tr>
+<tr><td>RoBERTa + latih lebih lama</td><td>160GB</td><td>500K</td><td>94,6/89,4</td><td>90,2</td><td>96,4</td></tr></table>
+<div class="box crit"><b>Pikir kritis:</b> (1) Hanya 15% token yang memberi sinyal belajar per kalimat, jadi Masked LM kurang efisien dibanding language modeling yang belajar dari <i>setiap</i> token. (2) Slide RoBERTa menunjukkan "lebih banyak compute dan data = lebih baik". Itu bukan temuan arsitektur baru, hanya bukti BERT asli <b>kurang terlatih</b>. (3) NSP dianggap tidak perlu, tetapi itu menunjukkan bahwa ide yang tampak masuk akal belum tentu berguna, jadi perlu eksperimen ablasi.</div></section>
+
+<section id="s7"><h2>7. Encoder-Decoder: T5</h2>
+<p>Idenya menggabungkan kelebihan keduanya: encoder membaca input dua arah, decoder menghasilkan output kiri ke kanan sambil melihat hasil encoder.</p>
+<h3>Span corruption</h3>
+<p>Ganti potongan teks dengan placeholder unik (<code>&lt;X&gt;</code>, <code>&lt;Y&gt;</code>), lalu decoder harus menghasilkan potongan yang hilang.</p>
+<div class="box"><b>Input:</b> Thank you <span class="tok m">&lt;X&gt;</span> me to your party <span class="tok m">&lt;Y&gt;</span> week.<br><b>Target:</b> <span class="tok m">&lt;X&gt;</span> for inviting <span class="tok m">&lt;Y&gt;</span> last <span class="tok m">&lt;Z&gt;</span><br><b>Teks asli:</b> Thank you for inviting me to your party last week.</div>
+<p>Ini dilakukan saat <i>preprocessing</i> teks, sehingga di sisi decoder tetap terlihat seperti language modeling.</p>
+<h3>Temuan Raffel dkk.</h3>
+<ul><li>Encoder-decoder lebih baik daripada decoder saja (pada tugas mereka).</li>
+<li>Denoising (span corruption) lebih baik daripada language modeling biasa. Contoh GLUE: 83,28 (denoising) vs 79,56 (LM).</li>
+<li>Berbagi parameter encoder-decoder hampir sama bagusnya dengan separuh parameter.</li></ul>
+<h3>T5 sebagai "pustakawan"</h3>
+<p>T5 yang difinetune menjawab pertanyaan terbuka ("Kapan Franklin D. Roosevelt lahir?" → "1882") hanya dari pengetahuan dalam parameternya, tanpa mencari dokumen. Semakin besar model, semakin baik: 220 juta → 11 miliar parameter menaikkan TriviaQA test dari 30,6 menjadi 52,5.</p>
+<div class="box crit"><b>Pikir kritis:</b> Pengetahuan yang tersimpan di parameter tidak bisa diperiksa sumbernya dan bisa salah (halusinasi), sulit diperbarui, dan butuh model sangat besar. Perbandingan "encoder-decoder lebih baik" berlaku pada tugas dan skala di studi itu. Pada skala sangat besar, dunia justru didominasi decoder. Catatan: slide menulis "Raffel et al., 2018"; makalah T5 umumnya dirujuk sebagai 2019/2020.</div></section>
+
+<section id="s8"><h2>8. Decoder: GPT</h2>
+<h3>Dua cara memakai decoder pretrained</h3>
+<table><tr><th>Cara</th><th>Mekanisme</th><th>Cocok untuk</th></tr>
+<tr><td><b>Sebagai classifier</b></td><td>Ambil hidden state kata terakhir h<sub>T</sub>, tambah lapisan linear (A, b) <b>baru yang acak</b>; gradien mengalir ke seluruh jaringan</td><td>Sentimen, inferensi</td></tr>
+<tr><td><b>Sebagai generator</b></td><td>Pakai kepala bahasa yang sudah pretrained (A, b dari pretraining), finetune p(w<sub>t</sub>|w<sub>1..t-1</sub>)</td><td>Dialog, ringkasan</td></tr></table>
+<h3>GPT-1 (2018)</h3>
+<ul><li>Decoder Transformer 12 layer, 117 juta parameter, hidden 768, feed-forward 3072.</li>
+<li>BPE dengan 40.000 merge; dilatih pada BooksCorpus (lebih dari 7000 buku). Buku berisi teks panjang yang menyambung, bagus untuk dependensi jarak jauh.</li>
+<li>Singkatan "GPT" tidak muncul di makalah aslinya.</li></ul>
+<h3>Bagaimana format input untuk tugas finetuning?</h3>
+<p>Contoh Natural Language Inference (premis dan hipotesis diberi label entailment/kontradiksi/netral):</p>
+<div class="box"><span class="tok">[START]</span><span class="tok">The man is in the doorway</span><span class="tok">[DELIM]</span><span class="tok">The person is near the door</span><span class="tok m">[EXTRACT]</span><br>Lapisan linear dipasang pada representasi token <code>[EXTRACT]</code> → hasil: <b>entailment</b>.</div>
+<p>Idenya cerdas: tugas apa pun diubah menjadi satu urutan token, jadi arsitektur tidak perlu diubah. GPT-1 mengalahkan banyak model khusus di MNLI, SNLI, SciTail, dan QNLI.</p>
+<h3>GPT-2</h3>
+<p>Versi lebih besar (1,5 miliar parameter) dengan data lebih banyak; menghasilkan teks yang relatif meyakinkan (contoh "unicorn di Pegunungan Andes" di slide).</p>
+<div class="box crit"><b>Pikir kritis:</b> Teks yang <i>meyakinkan</i> tidak sama dengan teks yang <i>benar</i>. Decoder dilatih untuk membuat kelanjutan yang masuk akal secara statistik, bukan untuk memastikan fakta. Kelemahan lain: decoder tidak bisa melihat kata di kanan, sehingga untuk tugas pemahaman murni ia punya keterbatasan dibanding encoder pada ukuran sama.</div></section>
+
+<section id="s9"><h2>9. GPT-3, in-context learning, dan scaling</h2>
+<h3>In-context learning</h3>
+<p>Model sangat besar tampak <b>belajar tanpa gradient step</b>, hanya dari contoh di dalam prompt:</p>
+<div class="box"><code>thanks =&gt; merci<br>hello =&gt; bonjour<br>mint =&gt; menthe<br>otter =&gt; </code> → model menghasilkan <b>loutre</b></div>
+<p>Contoh di prompt "menentukan tugas", dan model menirunya. Jumlah parameter: T5 terbesar 11 miliar, GPT-3 <b>175 miliar</b>. Ini membuka cara ketiga memakai model: selain sampling dan finetuning, kini ada <i>prompting</i>.</p>
+<div class="box crit"><b>Pikir kritis:</b> Slide memakai kata "seem" (tampak). Para peneliti masih berdebat apakah ini benar-benar "belajar" atau hanya mengenali pola tugas yang sudah ada di data latih. Parameter model tidak berubah, jadi pengetahuan tidak "tersimpan" setelah prompt selesai.</div>
+<h3>Scaling laws</h3>
+<p>Grafik di slide berbentuk garis lurus pada skala log: saat compute, ukuran data, atau jumlah parameter dinaikkan, <b>loss uji turun secara teratur</b>. Artinya hasil bisa diprediksi sebelum mengeluarkan biaya besar.</p>
+<h3>Efisiensi scaling: Chinchilla</h3>
+<p>Biaya latih kira-kira sebanding dengan <b>parameter × token</b>. Dengan anggaran compute tetap, kita harus memilih: model besar dengan data sedikit, atau model lebih kecil dengan data lebih banyak?</p>
+<table><tr><th>Model</th><th>Parameter</th><th>Token latih</th></tr><tr><td>LaMDA</td><td>137 miliar</td><td>168 miliar</td></tr><tr><td>GPT-3</td><td>175 miliar</td><td>300 miliar</td></tr><tr><td>Jurassic</td><td>178 miliar</td><td>300 miliar</td></tr><tr><td>Gopher</td><td>280 miliar</td><td>300 miliar</td></tr><tr><td>MT-NLG</td><td>530 miliar</td><td>270 miliar</td></tr><tr><td><b>Chinchilla</b></td><td><b>70 miliar</b></td><td><b>1,4 triliun</b></td></tr></table>
+<svg viewBox="0 0 640 150" role="img" aria-label="Diagram batang parameter dan token">
+<g font-size="12"><text x="5" y="30">Param GPT-3</text><rect x="110" y="16" width="175" height="18" fill="var(--dec)"/><text x="290" y="30">175B</text>
+<text x="5" y="55">Token GPT-3</text><rect x="110" y="41" width="60" height="18" fill="var(--enc)"/><text x="175" y="55">300B</text>
+<text x="5" y="95">Param Chinchilla</text><rect x="110" y="81" width="70" height="18" fill="var(--dec)"/><text x="185" y="95">70B</text>
+<text x="5" y="120">Token Chinchilla</text><rect x="110" y="106" width="280" height="18" fill="var(--enc)"/><text x="395" y="120">1.400B</text></g>
+<text x="450" y="30" font-size="12">skala batang: parameter 1px ≈ 1B,</text><text x="450" y="46" font-size="12">token 1px ≈ 5B</text></svg>
+<p>Kesimpulan: Chinchilla yang 4x lebih kecil <b>lebih baik</b> daripada model raksasa. Jadi model besar sebelumnya <b>kekurangan data</b> (undertrained).</p>
+<div class="box crit"><b>Pikir kritis:</b> "Lebih besar selalu lebih baik" terbukti tidak sepenuhnya benar; keseimbangan data dan parameter penting. Model lebih kecil juga lebih murah dipakai saat inferensi. Namun data berkualitas tinggi di internet terbatas, jadi menaikkan token tanpa batas pun ada ujungnya, dan biaya energi serta lingkungan ikut naik.</div></section>
+
+<section id="s10"><h2>10. Apa yang sebenarnya dipelajari pretraining?</h2>
+<p>Untuk menebak bagian yang disembunyikan, model harus belajar banyak hal. Contoh dari slide:</p>
+<table><tr><th>Kalimat</th><th>Yang dipelajari</th></tr>
+<tr><td>UGM berlokasi di ___, Indonesia</td><td>Pengetahuan fakta (trivia)</td></tr>
+<tr><td>I put ___ fork down on the table</td><td>Sintaks (di sini butuh "the")</td></tr>
+<tr><td>The woman walked across the street, checking for traffic over ___ shoulder</td><td>Koreferensi ("her" merujuk ke "the woman")</td></tr>
+<tr><td>I went to the ocean to see the fish, turtles, seals, and ___</td><td>Semantik leksikal/topik (hewan laut)</td></tr>
+<tr><td>Overall, I barely managed to stay awake. The movie was ___</td><td>Sentimen (membosankan)</td></tr>
+<tr><td>Iroh went into the kitchen... Zuko left the ___</td><td>Penalaran sederhana (lebih sulit)</td></tr>
+<tr><td>1, 1, 2, 3, 5, 8, 13, 21, ___</td><td>Aritmetika dasar (tidak benar-benar memahami deret Fibonacci)</td></tr></table>
+<h3>Sisi gelapnya</h3>
+<ul><li><b>Bias:</b> model mempelajari dan bisa memperkuat rasisme, seksisme, dan bias lain dari data.</li>
+<li><b>Memorisasi materi berhak cipta:</b> memicu gugatan (Getty, Copilot, New York Times, penerbit musik).</li>
+<li><b>Kebocoran data pribadi:</b> lewat <i>membership inference</i>, penyerang bisa mengetahui atau memancing data latih. Contoh GPT-2 yang memuntahkan alamat, email, dan nomor telepon nyata.</li></ul>
+<div class="box crit"><b>Pikir kritis:</b> Model hanya mempelajari <b>statistik bahasa</b>. Ia bisa terlihat bernalar tanpa benar-benar bernalar, dan ia menyalin bias karena bias itu ada di teks manusia. Sebelum memakai model di aplikasi nyata (kesehatan, hukum, rekrutmen), tanyakan: dari data apa ia belajar, dan siapa yang dirugikan jika ia salah?</div></section>
+
+<section id="s11"><h2>11. Kuis latihan</h2><p class="sub">Klik jawaban. Skor tampil di bawah.</p><div id="quiz"></div><p id="score" style="font:bold 16px system-ui"></p></section>
+
+<section id="s12"><h2>12. Rangkuman cepat</h2>
+<ol><li>Pretraining = belajar bahasa dari teks tanpa label, lalu finetuning = adaptasi ke tugas.</li>
+<li>Subword (BPE) menghilangkan masalah UNK dengan memecah kata langka.</li>
+<li>Encoder (BERT): Masked LM, dua arah, bagus untuk memahami. Tidak untuk generasi.</li>
+<li>Encoder-decoder (T5): span corruption; fleksibel untuk teks-ke-teks.</li>
+<li>Decoder (GPT): language modeling; bagus untuk generasi; model terbesar semuanya decoder.</li>
+<li>Skala + in-context learning memungkinkan prompting; Chinchilla mengingatkan pentingnya data.</li>
+<li>Pretraining juga membawa bias, hak cipta, dan risiko privasi.</li></ol>
+<p class="sub">Tips: jelaskan kembali tiap bagian dengan kata-katamu sendiri tanpa melihat catatan ini. Jika bisa, kamu sudah paham.</p></section>
+</main>
+<script src="../js/pretraining-finetuning.js" defer></script>
+</body>
+</html>

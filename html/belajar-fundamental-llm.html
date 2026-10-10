@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Belajar Fundamental LLM – Minggu 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/fundamental-llm.css"><link rel="stylesheet" href="../css/material-common.css"></head><body>
+<div id="bar"></div>
+<nav><a class="home-link" href="../index.html">← Beranda</a><b>Belajar LLM</b><small>Minggu 1 · UGM</small><br><br>
+<a href="#peta">0. Peta besar</a><a href="#lm">1. Language Model</a><a href="#input">2. Input: Representasi</a><a href="#model">3. Model</a><a href="#eval">4. Output: Evaluasi</a><a href="#review">5. Rangkuman</a><a href="#kuis">6. Kuis</a>
+<button id="theme">Mode gelap / terang</button></nav>
+<main>
+<header class="hero"><h1>Fundamental Research in Large Language Models</h1>
+<p>Panduan belajar dari slide Minggu 1 (Rifki Afina Putri, UGM). Setiap bagian punya <b>penjelasan sederhana</b>, <b>demo interaktif</b>, dan kotak <b>kritis</b> yang menunjukkan kelemahan atau perdebatan di dunia riset.</p></header>
+
+<section id="peta"><h2>0. Peta besar: Input → Model → Output</h2>
+<p>Seluruh slide diatur dengan satu pipeline. Hafalkan ini dulu, sisanya tinggal mengisi.</p>
+<table><tr><th>Bagian</th><th>Pertanyaan riset</th><th>Topik di slide</th></tr>
+<tr><td>Input</td><td>Bagaimana teks diubah jadi angka yang bisa diolah?</td><td>Fitur manual vs deep learning, Word2Vec, GloVe, FastText, contextualized embedding</td></tr>
+<tr><td>Model</td><td>Bagaimana model dilatih dan seberapa besar?</td><td>Pretraining &amp; fine-tuning (BERT), scaling laws, in-context learning, RLHF</td></tr>
+<tr><td>Output</td><td>Bagaimana kita tahu hasilnya bagus?</td><td>Closed vs open-ended, BLEU/ROUGE, BERTScore, manusia, Chatbot Arena, LLM-as-judge</td></tr></table>
+<div class="crit"><b>Kritis:</b> Pipeline tiga kotak ini adalah penyederhanaan. Di praktik, ketiganya saling memengaruhi. Misalnya, cara kita mengevaluasi (output) ikut menentukan model mana yang dianggap "bagus" lalu dikembangkan (model).</div></section>
+
+<section id="lm"><h2>1. Language Model (LM)</h2>
+<h3>1.1 Apa itu LM?</h3>
+<p>LM adalah model <i>machine learning</i> yang memprediksi kata berikutnya. Ia tidak memberi satu jawaban, tetapi <b>distribusi probabilitas</b> untuk semua kemungkinan kata.</p>
+<div class="eli">Bayangkan keyboard HP yang menyarankan 3 kata di atas papan ketik. Itu adalah LM kecil.</div>
+<div class="card"><b>Demo: "The light was ___"</b> (angka dari slide). Atur <i>top-k</i>, lalu coba ambil sampel.
+<div class="row"><label for="k">top-k = <b id="kv">4</b></label><input type="range" id="k" min="1" max="5" value="4"><button id="samp">Ambil sampel kata</button></div>
+<div id="nwb"></div><p id="out" class="ex">Klik tombol untuk menghasilkan kata.</p></div>
+<p>Perhatikan: "on" (0,45) dan "off" (0,44) hampir sama. Jika top-k = 1, model selalu memilih "on" (deterministik). Jika k lebih besar, hasil bisa berbeda tiap kali. Itulah sebabnya ChatGPT bisa memberi jawaban berbeda untuk pertanyaan yang sama.</p>
+<h3>1.2 Definisi formal</h3>
+<ul><li>Tujuan: hitung probabilitas urutan kata <code>P(W) = P(w₁, w₂, …, wₙ)</code>.</li>
+<li>Tugas terkait: probabilitas kata berikutnya <code>P(wₙ | w₁ … wₙ₋₁)</code>.</li>
+<li>Keduanya ekuivalen karena aturan rantai probabilitas: <code>P(W) = Πᵢ P(wᵢ | w₁…wᵢ₋₁)</code>. Jadi, jika bisa menebak kata berikutnya, kamu bisa menilai seluruh kalimat.</li>
+<li>Untuk LLM kita memakai <b>token</b> (potongan kata, misalnya "play" + "ing"), bukan kata utuh. Dengan token, kata baru atau salah ketik tetap bisa diproses.</li></ul>
+<h3>1.3 Aplikasi</h3>
+<p>Autocomplete, autocorrect, terjemahan mesin, code completion (Copilot), dan chatbot (ChatGPT, Gemini, Claude). Semuanya adalah variasi dari "prediksi token berikutnya".</p>
+<h3>1.4 Evolusi LM</h3>
+<table><tr><th>Era</th><th>Jenis</th><th>Contoh</th><th>Kemampuan</th></tr>
+<tr><td>1990-an</td><td>Statistical LM</td><td>n-gram</td><td>Membantu tugas spesifik</td></tr>
+<tr><td>2013</td><td>Neural LM</td><td>Word2Vec</td><td>Fitur umum (task-agnostic) untuk tugas NLP tipikal</td></tr>
+<tr><td>2018</td><td>Pre-trained LM</td><td>ELMo, BERT, GPT-1/2</td><td>Pretraining + fine-tuning; dipindah ke banyak tugas</td></tr>
+<tr><td>2020</td><td>LLM</td><td>GPT-3/4, ChatGPT, Claude</td><td>Pemecah tugas umum lewat prompt</td></tr></table>
+<div class="crit"><b>Kritis:</b> (1) Memprediksi kata berikutnya terdengar sederhana, tetapi tetap memerlukan banyak pengetahuan agar akurat. Namun apakah itu berarti model "memahami"? Ini masih diperdebatkan (kritik "stochastic parrot" vs pandangan bahwa model membangun representasi dunia). (2) Tahun di tabel adalah perkiraan; perubahan antar era bersifat bertahap, bukan lompatan tiba-tiba. (3) Model tidak mengecek kebenaran, hanya kelayakan statistik. Ini akar masalah <i>halusinasi</i>.</div></section>
+
+<section id="input"><h2>2. Input: representasi fitur</h2>
+<p>Komputer hanya mengerti angka. Pertanyaannya: bagaimana mengubah teks jadi angka yang <i>mengandung makna</i>?</p>
+<h3>2.1 Tradisional vs deep learning</h3>
+<table><tr><th></th><th>ML klasik</th><th>Deep learning</th></tr>
+<tr><td>Fitur</td><td>Dirancang <b>manual</b> oleh manusia (feature extraction)</td><td>Dipelajari <b>otomatis</b> oleh jaringan saraf</td></tr>
+<tr><td>Pipeline NLP</td><td>Deteksi bahasa → tokenisasi → stemming → stopwords → ekstraksi fitur → modeling</td><td>Pre-processing → embedding → neural network → output</td></tr>
+<tr><td>Kekurangan</td><td>Butuh pakar, tiap bahasa/tugas dibuat ulang</td><td>Butuh data dan komputasi besar, sulit ditafsirkan</td></tr></table>
+<div class="crit"><b>Kritis:</b> "Otomatis" tidak berarti bebas keputusan manusia. Pilihan data, tokenizer, dan arsitektur tetap buatan manusia dan membawa bias. Fitur yang dipelajari juga sering sulit dijelaskan.</div>
+<h3>2.2 Word embedding: Word2Vec (Mikolov, 2013)</h3>
+<p>Setiap kata menjadi vektor. Kata dengan makna/penggunaan mirip letaknya berdekatan. Slide menunjukkan hubungan seperti man→woman sejajar dengan king→queen, juga bentuk kata kerja (walking→walked) dan negara→ibu kota.</p>
+<div class="eli">Seperti memberi tiap kata koordinat di peta. "Raja" dan "ratu" bertetangga, "Jakarta" dan "Indonesia" punya hubungan arah yang sama dengan "Tokyo" dan "Jepang".</div>
+<div class="card"><b>Dua cara melatih Word2Vec</b><div class="row"><button data-sg="cbow">CBOW</button><button data-sg="skip">Skip-gram</button></div><div id="sgd"></div></div>
+<h3>2.3 Varian: GloVe dan FastText</h3>
+<ul><li><b>GloVe</b>: memakai statistik kemunculan bersama (co-occurrence) di <i>seluruh korpus</i> → menangkap konteks global. Word2Vec hanya melihat jendela lokal.</li>
+<li><b>FastText</b>: kata dipecah jadi <i>character n-gram</i> (mis. "play", "-ing", "player") → kata langka atau kata baru tetap punya vektor.</li></ul>
+<div class="crit"><b>Kritis:</b> Analogi vektor (king − man + woman ≈ queen) terlihat memukau, tetapi tidak selalu berhasil dan bisa menyalin <b>bias</b> dari data (misalnya stereotip profesi dan gender). Klaim "lebih baik" antara GloVe dan Word2Vec juga bergantung pada data dan tugas.</div>
+<h3>2.4 Masalah: embedding statis → contextualized embedding</h3>
+<p>Word2Vec/GloVe memberi <b>satu vektor per kata</b>. Padahal "bank" bisa berarti banyak hal. Contextualized embedding (ELMo, BERT, GPT) menghasilkan vektor yang <b>berubah sesuai kalimat</b>.</p>
+<div class="card"><b>Demo "bank"</b> (klik salah satu kalimat)<div class="row" id="bk"></div><p id="bko" class="ex">Pilih kalimat di atas.</p>
+<p class="ex">Di slide, BERT memetakan "bank" ke kelompok berbeda: lembaga keuangan, tepi/lereng tanah, gedung bank, punggungan, susunan benda, manuver pesawat. GloVe hanya satu titik.</p></div>
+<div class="crit"><b>Kritis:</b> Plot 2D (t-SNE) membantu intuisi, tetapi memampatkan ratusan dimensi ke dua, sehingga jarak di gambar bisa menipu. Jangan jadikan gambar itu bukti formal.</div></section>
+
+<section id="model"><h2>3. Model</h2>
+<h3>3.1 Pretraining dan fine-tuning (contoh BERT)</h3>
+<p><b>BERT</b> = Bidirectional Encoder Representations from Transformers. Paradigma dua langkah:</p>
+<table><tr><th></th><th>Step 1: Pretraining</th><th>Step 2: Fine-tuning</th></tr>
+<tr><td>Data</td><td>Teks besar tanpa label: Wikipedia (~2,5 miliar kata) + BooksCorpus (~800 juta kata)</td><td>Dataset berlabel kecil (mis. email spam / bukan spam)</td></tr>
+<tr><td>Tugas</td><td>Masked Language Modeling (tebak kata <code>[MASK]</code>) + Next Sentence Prediction</td><td>Supervised learning: sentimen, QA, klasifikasi, dll.</td></tr>
+<tr><td>Hasil</td><td>Model yang "mengerti bahasa" secara umum</td><td>Model ahli satu tugas</td></tr></table>
+<div class="eli">Pretraining = sekolah umum bertahun-tahun. Fine-tuning = kursus singkat untuk satu profesi.</div>
+<p><b>Contoh MLM:</b> input <code>[CLS] how are [MASK] today doing [SEP]</code> → model menebak "you" (probabilitas tertinggi), lalu "they", "your", dst. Karena BERT melihat kiri <i>dan</i> kanan kata yang ditutup, ia disebut <b>bidirectional</b>. <code>[CLS]</code> menandai awal dan vektornya dipakai untuk klasifikasi, <code>[SEP]</code> memisahkan kalimat.</p>
+<table><tr><th>Model</th><th>Arah</th><th>Catatan</th></tr><tr><td>BERT</td><td>Dua arah (Transformer encoder)</td><td>Bagus untuk memahami teks</td></tr><tr><td>GPT</td><td>Kiri ke kanan</td><td>Cocok untuk menghasilkan teks</td></tr><tr><td>ELMo</td><td>Dua LSTM terpisah (kiri→kanan dan kanan→kiri) lalu digabung</td><td>Gabungan dangkal, bukan interaksi dua arah penuh</td></tr></table>
+<div class="crit"><b>Kritis:</b> Penelitian lanjutan (RoBERTa, ada di daftar bacaan slide) menunjukkan Next Sentence Prediction ternyata kurang berguna, dan BERT sebenarnya <i>kurang dilatih</i>. Selain itu model bidirectional tidak bisa langsung menghasilkan teks panjang seperti GPT. Itu salah satu alasan arsitektur "kiri ke kanan" mendominasi LLM modern.</div>
+
+<h3>3.2 Scaling laws</h3>
+<table><tr><th>Model</th><th>Parameter</th><th>Data (token)</th><th>Compute (FLOPs)</th></tr>
+<tr><td>BERT-base (2018)</td><td>109 juta</td><td>250 miliar</td><td>1,6e20</td></tr><tr><td>GPT-3 (2020)</td><td>175 miliar</td><td>300 miliar</td><td>3,1e23</td></tr><tr><td>PaLM (2022)</td><td>540 miliar</td><td>780 miliar</td><td>2,5e24</td></tr></table>
+<p>Kaplan dkk. (2020) menemukan <b>hukum pangkat (power law)</b>: kalau parameter, data, dan compute dinaikkan, <i>loss</i> turun secara teratur dan dapat diprediksi. Di grafik log-log, hubungannya berupa garis lurus. Dari slide: <code>L(N) = (N/8,8·10¹³)^−0,076</code>.</p>
+<div class="card"><b>Demo: geser jumlah parameter</b><div class="row"><label for="n">Parameter</label><input type="range" id="n" min="5" max="12" step=".1" value="8"><b id="nv"></b></div><canvas id="cv" width="640" height="300" aria-label="Grafik loss terhadap parameter"></canvas><p id="lv"></p>
+<p class="ex">Eksponen kecil (−0,076) artinya: untuk menurunkan loss sedikit, parameter harus dinaikkan <i>berkali-kali lipat</i>. Mengalikan ukuran model 10x hanya menurunkan loss sekitar 16%.</p></div>
+<div class="crit"><b>Kritis:</b> (1) <b>Loss bukan kemampuan.</b> Loss turun, tetapi belum tentu model lebih jujur atau lebih berguna. (2) Studi Chinchilla (Hoffmann dkk., 2022) mengoreksi Kaplan: data seharusnya ikut dinaikkan seimbang, bukan hanya parameter. Banyak model besar waktu itu <i>kurang data</i>. (3) Hukum ini hanya empiris, bukan hukum alam. Data teks berkualitas terbatas, jadi tren ini tidak bisa terus berlanjut tanpa batas. (4) Biaya energi dan uang membuat hanya segelintir lembaga yang mampu, yang menjadi isu keadilan riset.</div>
+
+<h3>3.3 In-context learning (ICL)</h3>
+<p>Brown dkk. (2020): GPT-3 (175 miliar parameter) bisa mengerjakan tugas baru <b>hanya dari contoh di dalam prompt</b>, tanpa mengubah bobot. Kemampuan ini <b>tidak diprogram</b>, melainkan muncul (emergent) setelah model cukup besar. Pada grafik TriviaQA, makin banyak contoh (zero → one → few-shot) makin tinggi akurasi, dan pada 175B few-shot menyamai/melampaui SOTA hasil fine-tuning.</p>
+<div class="card"><b>Bandingkan empat cara</b><div class="row"><button data-ic="zero">Zero-shot</button><button data-ic="one">One-shot</button><button data-ic="few">Few-shot</button><button data-ic="ft">Fine-tuning</button></div><pre id="icp"></pre></div>
+<div class="crit"><b>Kritis:</b> (1) "Learning" di sini hanya metafora: bobot tidak berubah, pengetahuan hilang saat konteks hilang. (2) Hasil ICL sensitif terhadap urutan, format, dan pilihan contoh. (3) Klaim "emergent" diperdebatkan: sebagian peneliti (Schaeffer dkk., 2023) berpendapat lonjakan mendadak muncul karena metrik evaluasi yang tajam (benar/salah), bukan karena kemampuan benar-benar muncul tiba-tiba.</div>
+
+<h3>3.4 RLHF (Reinforcement Learning from Human Feedback)</h3>
+<p><b>Reinforcement learning</b>: agent belajar lewat coba-coba pada sebuah environment. Agent melakukan <i>action</i>, environment memberi <i>reward</i>. Pada RLHF, "reward" berasal dari preferensi manusia. Ini yang mengubah GPT-3 mentah menjadi asisten yang mengikuti instruksi (Ouyang dkk., 2022).</p>
+<div class="card"><div class="row"><button data-rl="0">Langkah 1</button><button data-rl="1">Langkah 2</button><button data-rl="2">Langkah 3</button></div><div id="rld"></div></div>
+<div class="eli">Seperti melatih koki: pertama ia meniru resep (SFT), lalu belajar selera juri dari peringkat (reward model), lalu terus memasak dan memperbaiki diri berdasarkan nilai juri (PPO).</div>
+<div class="crit"><b>Kritis:</b> (1) <b>Reward hacking</b>: model mengakali reward model, bukan benar-benar membantu. (2) <b>Sycophancy</b>: model cenderung menyenangkan pengguna, bahkan jika salah. (3) Preferensi pelabel sedikit orang tidak mewakili semua budaya dan nilai. (4) Mahal dan tidak stabil, sehingga muncul alternatif seperti <b>DPO</b> (dibahas di roadmap minggu 1–7).</div></section>
+
+<section id="eval"><h2>4. Output: evaluasi LLM</h2>
+<p>Evaluasi yang ketat itu wajib sebelum model dipakai, agar akurat, adil, dan andal.</p>
+<h3>4.1 Closed-ended vs open-ended</h3>
+<table><tr><th></th><th>Closed-ended</th><th>Open-ended</th></tr>
+<tr><td>Jawaban benar</td><td>Satu atau sedikit</td><td>Ribuan kemungkinan; ada yang lebih baik atau lebih buruk</td></tr>
+<tr><td>Contoh</td><td>Klasifikasi sentimen, extractive QA</td><td>Menulis cerita, merangkum, chatbot</td></tr>
+<tr><td>Evaluasi</td><td>Otomatis, seperti ML biasa (akurasi, F1)</td><td>Sulit; butuh metrik khusus atau manusia</td></tr></table>
+<h3>4.2 Benchmark closed-ended</h3>
+<ul><li><b>Single-task</b>: SST &amp; IMDB (sentimen), SNLI &amp; MultiNLI (entailment: premis mendukung/bertentangan/netral dengan hipotesis), SQuAD &amp; NaturalQuestions (QA).</li>
+<li><b>SuperGLUE</b> (multi-task, mengukur "kemampuan bahasa umum"): BoolQ &amp; MultiRC (membaca teks), CB &amp; RTE (entailment), COPA (sebab-akibat), ReCoRD (QA + penalaran), WiC (makna kata), WSC (koreferensi).</li>
+<li><b>MMLU</b> (Hendrycks, 2021): 57 tugas pengetahuan, dari aljabar abstrak hingga sejarah Eropa.</li></ul>
+<div class="crit"><b>Kritis:</b> Pada leaderboard SuperGLUE di slide, beberapa model mengalahkan <i>human baseline</i> (89,8). Apakah berarti AI lebih paham bahasa dari manusia? Tidak tentu. Model bisa memanfaatkan <b>pola dangkal</b> dalam dataset. Benchmark juga cepat <b>jenuh</b> dan bisa <b>terkontaminasi</b> (soal ujian ikut terbawa di data latih).</div>
+<h3>4.3 Evaluasi teks open-ended</h3>
+<p><b>(a) Content overlap</b> (BLEU, ROUGE, METEOR, CIDEr): menghitung kemiripan kata/n-gram antara hasil model dan teks acuan manusia. Cepat dan murah. <b>(b) Model-based</b>: <b>BERTScore</b> mencocokkan kata via cosine similarity embedding BERT, <b>BLEURT</b> adalah model regresi berbasis BERT yang menilai tata bahasa dan kesesuaian makna.</p>
+<div class="card"><b>Demo: kenapa overlap bisa menipu</b> (hitung unigram sederhana)
+<label for="ref">Acuan:</label><input type="text" id="ref" value="They walked to the grocery store.">
+<label for="gen">Hasil model:</label><input type="text" id="gen" value="The woman went to the hardware store.">
+<p id="ovo"></p><p class="ex">Coba ubah jadi "They strolled to the supermarket." Maknanya hampir sama dengan acuan, tetapi skor overlap rendah. Sebaliknya, kalimat di atas mirip secara kata tetapi maknanya berbeda (toko kelontong vs toko perkakas) dan skornya tetap lumayan.</p></div>
+<p><b>(c) Human evaluation</b> adalah standar emas: nilai fluency, koherensi, faktualitas, commonsense, gaya, tata bahasa, dst. Kekurangannya lambat, mahal, tidak konsisten/sulit direproduksi, bisa salah paham pertanyaan, dan <b>skor antar studi tidak boleh dibandingkan</b> walau dimensinya bernama sama.</p>
+<p><b>(d) Side-by-side: Chatbot Arena</b> (Chiang dkk., 2024): pengguna membandingkan dua model anonim secara acak, memilih A, B, seri, atau keduanya buruk. Hasilnya jadi peringkat model dari voting crowdsourced.</p>
+<p><b>(e) LM evaluator (LLM-as-judge)</b>: LLM dipakai sebagai juri tanpa referensi (MT-bench, AlpacaEval). Jauh lebih murah dan cepat dengan korelasi tinggi terhadap manusia. Tetapi waspadai <b>korelasi palsu</b>: preferensi pada jawaban panjang, bias posisi (biasanya diatasi dengan pengacakan), dan <b>self-bias</b> GPT-4 yang menyukai jawaban gaya GPT-4.</p>
+<div class="crit"><b>Kritis:</b> Chatbot Arena rawan bias: penanya bukan sampel representatif, gaya penulisan yang "enak dibaca" bisa menang meski kurang akurat. LLM-as-judge pun mewarisi bias model itu sendiri. Hukum Goodhart berlaku: <i>saat metrik jadi target, ia berhenti jadi ukuran yang baik.</i></div>
+<h3>4.4 Takeaways dari slide</h3>
+<ul><li>Closed-ended: pikirkan apa yang diuji (keragaman, kesulitan) dan <b>external validity</b> (apakah hasil berlaku di dunia nyata).</li>
+<li>Open-ended: overlap berguna untuk tugas dengan keragaman rendah; evaluasi chatbot masih <b>masalah terbuka</b>.</li>
+<li>Tantangan: konsistensi dan <b>contamination</b>.</li>
+<li>Sering kali penilai terbaik adalah kamu: <b>baca output model</b>, jangan hanya andalkan angka, dan rilis sampel luas dari output sistemmu.</li></ul></section>
+
+<section id="review"><h2>5. Rangkuman dan cara belajar</h2>
+<table><tr><th>Topik</th><th>Masalah yang diselesaikan</th><th>Kelemahan</th></tr>
+<tr><td>Fitur manual</td><td>Awal NLP</td><td>Mahal, tidak skalabel</td></tr>
+<tr><td>Word2Vec/GloVe/FastText</td><td>Makna kata dalam vektor</td><td>Statis, bias</td></tr>
+<tr><td>BERT/ELMo/GPT</td><td>Makna sesuai konteks</td><td>Besar, butuh pretraining mahal</td></tr>
+<tr><td>Scaling laws</td><td>Memprediksi manfaat model besar</td><td>Loss ≠ kemampuan; batas data</td></tr>
+<tr><td>In-context learning</td><td>Tugas baru tanpa training</td><td>Sensitif prompt; bukan belajar permanen</td></tr>
+<tr><td>RLHF</td><td>Selaras dengan preferensi manusia</td><td>Reward hacking, sycophancy, bias</td></tr>
+<tr><td>Overlap / BERTScore</td><td>Evaluasi otomatis</td><td>Dangkal / bergantung model</td></tr>
+<tr><td>Manusia / Arena / LLM judge</td><td>Menilai kualitas sebenarnya</td><td>Mahal / bias / bias model</td></tr></table>
+<div class="card"><b>Langkah belajar:</b><ol><li>Gambar pipeline dari ingatan, isi semua topik.</li><li>Jelaskan tiap kotak "Kritis" dengan kata-katamu sendiri.</li><li>Baca abstrak paper berurutan: Word2Vec → BERT → Kaplan → Brown (GPT-3) → Ouyang (RLHF).</li><li>Jawab kuis di bawah sampai kamu tidak perlu menengok catatan.</li></ol></div></section>
+
+<section id="kuis"><h2>6. Kuis latihan</h2><div id="quiz"></div><p><b id="score">Skor: 0/0 dijawab dari 8</b></p></section>
+</main><script src="../js/fundamental-llm.js" defer></script></body></html>

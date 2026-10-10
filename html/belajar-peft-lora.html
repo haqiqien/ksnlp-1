@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Belajar PEFT & LoRA</title>
+<link rel="stylesheet" href="../css/peft-lora.css"><link rel="stylesheet" href="../css/material-common.css">
+</head><body>
+<div id="bar"></div>
+<nav><a class="home-link" href="../index.html">← Beranda</a><b>Belajar PEFT & LoRA</b>
+<a href="#s0">0. Pemanasan</a><a href="#s1">1. Mengapa PEFT?</a><a href="#s2">2. Pruning</a><a href="#s3">3. LoRA (inti)</a><a href="#s4">4. Prompt/Prefix tuning</a><a href="#s5">5. Adapter</a><a href="#s6">6. Perbandingan</a><a href="#s7">7. Tugas W6</a><a href="#s8">8. Kuis</a>
+<button id="th">Mode gelap/terang</button></nav>
+<main>
+<header><p>Ringkasan belajar dari slide W6 (UGM, diadaptasi dari Stanford CS224N)</p><h1>Parameter-Efficient Fine-Tuning</h1>
+<p>Penjelasan dengan bahasa sederhana, lengkap dengan <span style="color:var(--ac2)">catatan kritis</span> di tiap bagian. Cara pakai: baca, coba kalkulator di bagian LoRA, lalu kerjakan kuis.</p></header>
+
+<section id="s0"><h2>0. Pemanasan: dari model bahasa ke asisten</h2>
+<p>Model bahasa awalnya hanya melengkapi kalimat ("UGM terletak di ___"). Agar jadi asisten yang bisa diajak bicara, ada beberapa tahap:</p>
+<ol><li><b>Pretraining</b>: model membaca teks dalam jumlah sangat besar untuk memprediksi kata berikutnya. Hasilnya pengetahuan umum bahasa dan dunia. Bobotnya jadi "titik awal" (inisialisasi).</li>
+<li><b>Finetuning</b>: bobot itu disesuaikan dengan tugas tertentu (misalnya klasifikasi sentimen) memakai data berlabel yang sedikit.</li>
+<li><b>Instruction finetuning</b>: finetuning pada pasangan (instruksi, jawaban) dari banyak tugas sekaligus, lalu diuji pada tugas yang belum pernah dilihat (contoh: FLAN-T5).</li>
+<li><b>RLHF</b> (InstructGPT): (1) SFT, yaitu finetuning dari demonstrasi manusia; (2) latih <i>reward model</i> dari ranking jawaban oleh manusia; (3) optimalkan model dengan RL (PPO) agar reward maksimal. InstructGPT memakai sekitar 30 ribu tugas.</li></ol>
+<div class="kr"><b>Kritis:</b><p>Semua tahap ini mengubah <i>semua</i> parameter model. Itulah masalahnya: untuk model miliaran parameter, ini mahal. PEFT lahir untuk menjawab itu.</p></div></section>
+
+<section id="s1"><h2>1. Dari fine-tuning ke PEFT</h2>
+<div class="row"><div class="card"><b>Full fine-tuning</b><br>Semua parameter diupdate. Setiap tugas = satu salinan model utuh.</div><div class="card"><b>PEFT</b><br>Hanya sebagian kecil parameter yang dilatih, sisanya dibekukan.</div></div>
+<h3>Mengapa hanya melatih sebagian?</h3>
+<ul><li><b>Tidak praktis:</b> GPT-3 punya 175 miliar parameter. Menyimpan satu salinan per tugas sangat boros.</li>
+<li><b>Model terlalu "besar":</b> model modern <i>over-parameterized</i>, jadi perubahan kecil sudah cukup untuk adaptasi. PEFT sering menyamai hasil full fine-tuning.</li>
+<li><b>Lingkungan dan keadilan akses (Green AI):</b> riset AI lebih fokus ke akurasi daripada efisiensi. Biaya latih yang tinggi membuat AI dikuasai organisasi besar. Contoh slide: pada kelas RL di Stanford, memakai algoritma yang lebih efisien bisa menghemat sekitar 880 kWh, setara listrik rumah tangga Amerika selama sebulan.</li></ul>
+<h3>Tiga sudut pandang PEFT</h3>
+<div class="w"><table><tr><th>Perspektif</th><th>Ide</th><th>Metode</th></tr>
+<tr><td>Parameter</td><td>Ubah/pilih bobot yang sudah ada</td><td>Pruning (sparse subnetwork), LoRA (low-rank)</td></tr>
+<tr><td>Input</td><td>Tambahkan vektor yang dipelajari di input</td><td>Prefix-tuning, prompt-tuning</td></tr>
+<tr><td>Function</td><td>Sisipkan fungsi/modul baru</td><td>Adapter</td></tr></table></div>
+<div class="kr"><b>Kritis:</b><p>Klaim "PEFT menyamai full fine-tuning" tidak berlaku mutlak. Slide sendiri menunjukkan prompt tuning kalah pada model kecil (bagian 4 dan 6). Selalu tanyakan: pada ukuran model berapa, dan pada tugas apa?</p></div></section>
+
+<section id="s2"><h2>2. Pruning dan sparse subnetwork</h2>
+<p><b>Sparsity</b> berarti banyak bobot bernilai nol. <b>Pruning</b> menghapus koneksi yang kurang penting. Kriteria paling umum: <b>besar bobot (magnitude)</b>, bobot paling kecil dibuang (Han et al.).</p>
+<svg viewBox="0 0 560 130" role="img" aria-label="Alur pruning"><g class="g"><rect x="10" y="35" width="110" height="55" rx="8"/><rect x="215" y="35" width="110" height="55" rx="8"/><rect x="420" y="35" width="130" height="55" rx="8"/></g>
+<text x="30" y="68">Latih awal</text><text x="228" y="68">Buang bobot kecil</text><text x="438" y="62">Latih ulang sisa</text><text x="438" y="80">(ulangi...)</text>
+<path d="M120 62h95M325 62h95" stroke="var(--mut)" stroke-width="2"/><path d="M485 35q-120-40-265 0" fill="none" stroke="var(--ac2)" stroke-width="2" stroke-dasharray="5"/><text x="260" y="22" style="fill:var(--ac2)">iterative pruning</text></svg>
+<ul><li>Bisa dilihat sebagai <b>binary mask</b> b ∈ {0,1}: b=1 bobot dipertahankan, b=0 dibuang. Model baru: <code>f(θ ∘ b)</code>, tanda ∘ adalah perkalian elemen demi elemen (Hadamard).</li>
+<li><b>One-shot</b>: pangkas sekali. <b>Iterative</b>: pangkas sedikit, latih ulang, ulangi (lebih umum, Frankle &amp; Carbin 2019).</li>
+<li><b>Diff pruning</b>: pruning berdasarkan besar <i>perubahan</i> φ, bukan bobot akhir.</li></ul>
+<h3>Lottery Ticket Hypothesis</h3>
+<p>Jaringan besar yang diinisialisasi acak mengandung subnetwork kecil ("tiket pemenang") yang jika dilatih sendirian mencapai akurasi setara jaringan penuh. Pada BERT, tingkat sparsity yang ditemukan berkisar 40% (SQuAD) sampai 90% (QQP, WNLI). Subnetwork dari tugas umum seperti masked language modelling paling mudah dipindahkan ke tugas lain.</p>
+<div class="kr"><b>Kritis:</b><p>Menemukan "tiket" butuh pelatihan penuh berulang kali, jadi tidak murah. Selain itu pruning acak (unstructured) menghasilkan matriks berlubang yang di GPU biasa tidak otomatis lebih cepat. Pruning cocok untuk memahami kompresi, tetapi untuk adaptasi praktis LoRA lebih sering dipakai.</p></div></section>
+
+<section id="s3"><h2>3. LoRA (Low-Rank Adaptation): inti materi</h2>
+<h3>3.1 Masalah yang dipecahkan</h3>
+<p>Pada full fine-tuning kita memperbarui φ₀ menjadi φ₀ + Δφ dengan memaksimalkan log-likelihood bersyarat:</p>
+<div class="f">max<sub>φ</sub> Σ<sub>(x,y)</sub> Σ<sub>t=1..|y|</sub> log P<sub>φ</sub>(y<sub>t</sub> | x, y<sub>&lt;t</sub>)</div>
+<p>Artinya: untuk setiap pasangan konteks x dan target y, model dilatih agar makin yakin pada kata berikutnya. Masalahnya, <code>|Δφ| = |φ₀|</code>, jadi tiap tugas butuh tambahan sebesar model asli (175 miliar untuk GPT-3).</p>
+<h3>3.2 Ide utama</h3>
+<p>Perubahan bobot ternyata punya <b>"intrinsic rank" yang rendah</b> (Aghajanyan et al., 2020): informasinya bisa dirangkum dengan sedikit angka. Maka Δφ dikodekan oleh parameter kecil Θ dengan |Θ| ≪ |φ₀|, dan kita optimalkan Θ saja.</p>
+<h3>3.3 Rumusnya</h3>
+<div class="f">W₀ + ΔW = W₀ + α·B·A</div>
+<ul><li><b>W₀ ∈ ℝ<sup>d×k</sup></b>: bobot pretrained, <b>dibekukan</b>.</li>
+<li><b>B ∈ ℝ<sup>d×r</sup></b> dan <b>A ∈ ℝ<sup>r×k</sup></b>: matriks kecil yang <b>dilatih</b>, dengan <b>r ≪ min(d,k)</b> (r = rank).</li>
+<li><b>Inisialisasi:</b> A acak (Gaussian atau Kaiming), <b>B = 0</b>. Jadi di awal ΔW = 0 dan model persis sama dengan model pretrained, tidak ada "kejutan" saat training mulai.</li>
+<li><b>α</b>: pengatur seberapa kuat pengetahuan baru dicampur dengan pengetahuan lama.</li></ul>
+<svg viewBox="0 0 520 250" role="img" aria-label="Diagram LoRA"><rect class="g" x="150" y="8" width="220" height="22" rx="4"/><text x="236" y="24">h (keluaran)</text>
+<circle cx="260" cy="70" r="14" class="g"/><text x="254" y="75">+</text>
+<rect class="b" x="90" y="100" width="150" height="90" rx="6"/><text x="108" y="140">W₀ (dibeku­kan)</text><text x="128" y="160">d × k</text>
+<rect class="o" x="320" y="98" width="110" height="34" rx="6"/><text x="332" y="120">B (d×r) = 0</text>
+<rect class="o" x="320" y="160" width="110" height="34" rx="6"/><text x="326" y="182">A (r×k) acak</text>
+<rect class="g" x="150" y="222" width="220" height="22" rx="4"/><text x="236" y="238">x (masukan)</text>
+<g stroke="var(--mut)" stroke-width="2" fill="none"><path d="M165 222V190"/><path d="M165 100V70H246"/><path d="M375 222V194"/><path d="M375 98V70H274"/><path d="M260 56V30"/><path d="M375 132v28" stroke-dasharray="3"/></g>
+<text x="436" y="152">rank r</text></svg>
+<p class="cap">Jalur kiri: bobot asli. Jalur kanan: lewat A lalu B (hanya ini yang dilatih). Keduanya dijumlahkan.</p>
+<h3>3.4 Kode di slide, dibaca baris demi baris</h3>
+<pre>W_A = nn.Parameter(torch.empty(input_dim, rank))   # matriks A
+W_B = nn.Parameter(torch.empty(rank, output_dim))  # matriks B
+nn.init.kaiming_uniform_(W_A, a=math.sqrt(5))      # A: acak
+nn.init.zeros_(W_B)                                # B: nol
+
+def lora_forward_matmul(x, W, W_A, W_B):
+    h = x @ W                          # jalur asli (beku)
+    h += x @ (W_A @ W_B) * alpha       # tambahan LoRA
+    return h</pre>
+<div class="kr"><b>Kritis:</b><p>Beda notasi: di rumus slide <code>BA</code> dengan B berukuran d×r, sedangkan di kode <code>x @ (W_A @ W_B)</code> karena x dikalikan dari kiri (ukuran dibalik). Maknanya sama. Slide juga menyebut A berdistribusi Gaussian, kode memakai Kaiming uniform: keduanya sah, intinya A acak dan B nol. Di paper asli, skala memakai α/r, sehingga mengubah r tidak mengubah besar update secara drastis.</p></div>
+<h3>3.5 Coba sendiri: kalkulator parameter</h3>
+<div class="card"><label>d <input id="d" type="number" value="768"></label><label>k <input id="k" type="number" value="768"></label><label>rank r <input id="r" type="number" value="8"></label><label>jumlah matriks <input id="n" type="number" value="1"></label>
+<p class="res" id="out"></p><small>Contoh: BERT-base punya 12 layer; jika LoRA dipasang di Wq dan Wv, jumlah matriks = 24.</small></div>
+<h3>3.6 Keunggulan</h3>
+<ul><li><b>Tanpa latensi tambahan saat inferensi:</b> BA bisa digabung ke W₀. Ganti tugas = kurangi BA lama, tambahkan B′A′ baru.</li>
+<li><b>Penyimpanan kecil:</b> satu model dasar + banyak "file kecil" per tugas.</li>
+<li>Jika r dinaikkan terus, LoRA mendekati full fine-tuning.</li>
+<li>Biasanya dipasang pada matriks self-attention.</li></ul>
+<h3>3.7 Bukti dari eksperimen (GPT-3 175B)</h3>
+<div class="w"><table><tr><th>Metode</th><th>Parameter dilatih</th><th>WikiSQL</th><th>MNLI-m</th></tr>
+<tr><td>Full fine-tuning</td><td>175.255,8 juta</td><td>73,8</td><td>89,5</td></tr><tr><td>Adapter</td><td>40,1 juta</td><td>73,2</td><td>91,5</td></tr>
+<tr><td>LoRA</td><td>4,7 juta</td><td>73,4</td><td>91,7</td></tr><tr><td>LoRA</td><td>37,7 juta</td><td>74,0</td><td>91,6</td></tr></table></div>
+<ul><li>LoRA setara atau lebih baik dari full fine-tuning dengan parameter ribuan kali lebih sedikit (4,7 juta vs 175 miliar, kurang dari 0,003%).</li>
+<li>Menerapkan LoRA ke <b>Wq dan Wv</b> memberi hasil terbaik secara keseluruhan.</li>
+<li>Rank kecil (bahkan r = 1 atau 2) sudah kompetitif.</li></ul>
+<div class="kr"><b>Kritis:</b><p>Selisih antar-setting sering sangat kecil (WikiSQL ±0,5%, MNLI ±0,1%), jadi "r=8 lebih baik dari r=64" kadang hanya noise. Jangan menarik kesimpulan besar dari beda 0,1 poin. Juga, hasil ini dari satu keluarga model (GPT-3) dan beberapa dataset; untuk tugasmu sendiri perlu dicoba, dan itu persis tujuan tugas W6.</p></div>
+<h3>3.8 QLoRA</h3>
+<p>QLoRA = LoRA + <b>kuantisasi 4-bit</b> pada model dasar + <b>paged optimizer</b> (memindahkan data optimizer ke CPU saat memori GPU penuh). Memakai tipe data <b>NF4 (4-bit NormalFloat)</b>, optimal secara teori untuk bobot yang berdistribusi normal. Hasilnya, model besar bisa dilatih pada GPU yang jauh lebih kecil. Kelemahannya, kuantisasi membuat bobot dasar kurang presisi dan pelatihan agak lebih lambat.</p></section>
+
+<section id="s4"><h2>4. Prefix-tuning dan prompt-tuning (perspektif input)</h2>
+<p>Alih-alih mengubah bobot, kita menambahkan <b>"virtual tokens"</b>: vektor kontinu yang dipelajari, diperlakukan model seperti kata biasa. Seluruh model <b>dibekukan</b>.</p>
+<svg viewBox="0 0 520 170" role="img" aria-label="Prompt tuning"><rect class="b" x="60" y="20" width="400" height="60" rx="8"/><text x="205" y="55">Model pretrained (beku)</text>
+<g class="o"><rect x="80" y="110" width="30" height="30"/><rect x="118" y="110" width="30" height="30"/><rect x="156" y="110" width="30" height="30"/></g>
+<g class="g"><rect x="215" y="110" width="30" height="30"/><rect x="253" y="110" width="30" height="30"/><rect x="291" y="110" width="30" height="30"/><rect x="329" y="110" width="30" height="30"/><rect x="367" y="110" width="30" height="30"/></g>
+<path d="M260 108V82" stroke="var(--mut)" stroke-width="2"/><text x="78" y="160">virtual tokens (dilatih)</text><text x="260" y="160">... film itu ... (input asli)</text></svg>
+<div class="w"><table><tr><th></th><th>Prefix-tuning (Li &amp; Liang)</th><th>Prompt-tuning (Lester et al.)</th></tr>
+<tr><td>Yang dilatih</td><td>Prefix kontinu (di setiap layer)</td><td>Embedding token virtual di input saja</td></tr>
+<tr><td>Kelebihan</td><td>Satu batch bisa berisi tugas berbeda-beda, karena tinggal ganti prefix</td><td>Sangat sedikit parameter, serving multi-tugas efisien</td></tr></table></div>
+<p><b>Prompt design</b> (menulis prompt manual, seperti GPT-3) berbeda dari <b>prompt tuning</b>: yang kedua dipelajari lewat gradien, bukan ditulis tangan.</p>
+<div class="kr"><b>Kritis:</b><p>Grafik slide 59 memperlihatkan prompt tuning baru menyamai model tuning ketika model mencapai sekitar 10 miliar parameter; pada model kecil jauh tertinggal. Slide 67 mengonfirmasi: kapasitasnya terbatas. Selain itu vektor virtual tidak bisa dibaca manusia, sehingga sulit diinterpretasikan dan dilacak.</p></div></section>
+
+<section id="s5"><h2>5. Adapter (perspektif fungsi)</h2>
+<p>Adapter adalah modul mungil yang <b>disisipkan di antara layer</b> Transformer (Houlsby et al., 2019). Bentuknya "botol sempit": perkecil dimensi, beri nonlinearitas, lalu besarkan kembali, dan tambahkan ke jalur asli (residual).</p>
+<div class="f">f(x) = W<sub>U</sub> · σ(W<sub>D</sub> · x), keluaran akhir = x + f(x)</div>
+<svg viewBox="0 0 420 230" role="img" aria-label="Adapter"><rect class="g" x="110" y="8" width="200" height="26" rx="4"/><text x="170" y="26">keluaran (+ x)</text>
+<rect class="o" x="110" y="55" width="200" height="30" rx="4"/><text x="132" y="75">Up-projection W_U (d)</text>
+<rect class="g" x="150" y="100" width="120" height="26" rx="4"/><text x="170" y="118">Nonlinearitas σ</text>
+<rect class="o" x="110" y="141" width="200" height="30" rx="4"/><text x="124" y="161">Down-projection W_D (k kecil)</text>
+<rect class="g" x="110" y="196" width="200" height="26" rx="4"/><text x="178" y="214">masukan x</text>
+<path d="M210 196V171M210 141V126M210 100V85M210 55V34" stroke="var(--mut)" stroke-width="2"/><path d="M110 209H70V21H110" fill="none" stroke="var(--ac2)" stroke-width="2"/><text x="318" y="120">jalur residual di kiri</text></svg>
+<ul><li>Biasanya ditaruh <b>setelah multi-head attention</b> dan/atau <b>setelah feed-forward layer</b>.</li>
+<li>Hanya adapter yang dilatih; sisa model beku.</li>
+<li>Hasil: setara full fine-tuning (benchmark GLUE) dengan sekitar <b>100× lebih sedikit parameter</b>.</li>
+<li><b>Contoh aplikasi:</b> adaptasi LLM berbasis Standard American English ke dialek lain (misalnya AAVE) dengan "dialect adapter" per fitur linguistik, lalu digabung (adapter fusion).</li></ul>
+<div class="kr"><b>Kritis:</b><p>Berbeda dengan LoRA, adapter tidak bisa "dilebur" ke bobot karena ada nonlinearitas di tengah, sehingga inferensi punya layer tambahan dan sedikit lebih lambat. Pada slide 67, adapter lebih akurat dari prompt tuning tetapi memakai lebih banyak parameter. Inilah trade-off klasik: akurasi vs jumlah parameter.</p></div></section>
+
+<section id="s6"><h2>6. Perbandingan dan pandangan menyeluruh</h2>
+<p>He et al. (2022) menunjukkan bahwa adapter, prefix tuning, dan LoRA punya <b>bentuk fungsi serupa</b>: semuanya menambahkan perubahan kecil (lewat W_down dan W_up) pada representasi tersembunyi <b>h</b>. Bedanya terletak pada letak penyisipan, fungsi di tengah (ReLU, softmax, scaling), dan cara penjumlahan.</p>
+<div class="w"><table><tr><th>Metode</th><th>Perspektif</th><th>Yang dilatih</th><th>Kelebihan</th><th>Kekurangan</th></tr>
+<tr><td>Pruning</td><td>Parameter</td><td>Mask / sisa bobot</td><td>Model lebih kecil</td><td>Mahal mencari, tidak selalu lebih cepat</td></tr>
+<tr><td>LoRA</td><td>Parameter</td><td>A dan B (low-rank)</td><td>Tanpa latensi tambahan, hemat</td><td>Perlu memilih r, α, modul target</td></tr>
+<tr><td>Prefix/Prompt</td><td>Input</td><td>Vektor virtual</td><td>Paling sedikit parameter, batch campur tugas</td><td>Lemah pada model kecil</td></tr>
+<tr><td>Adapter</td><td>Function</td><td>Modul bottleneck</td><td>Akurat, modular</td><td>Parameter dan latensi bertambah</td></tr></table></div>
+<h3>Varian lain</h3>
+<ul><li><b>Knowledge distillation:</b> model "guru" besar mengajari model "murid" kecil, sehingga murid mendekati kemampuan guru. Contohnya, rantai penalaran dari LLM dipakai untuk melatih LM kecil.</li><li>Untuk dieksplorasi sendiri: Gist tokens dan ReFT.</li></ul>
+<div class="kr"><b>Kritis:</b><p>Tidak ada metode terbaik mutlak. Pilihan bergantung pada ukuran model, memori GPU, kebutuhan serving banyak tugas, dan target akurasi. Untuk kebanyakan kasus saat ini, LoRA/QLoRA adalah titik awal yang masuk akal.</p></div></section>
+
+<section id="s7"><h2>7. Panduan Tugas W6: Eksplorasi LoRA</h2>
+<ol><li>Baca tutorial Hugging Face LLM Course, chapter 11, section 4.</li>
+<li>Jalankan notebook Colab <b>dengan setelan default</b>; catat training loss dan output 4 prompt.</li>
+<li>Ubah <b>satu parameter per run</b> (rank, alpha, dropout, atau target_modules) supaya pengaruhnya jelas.</li>
+<li>Catat tabel: setting | parameter trainable | training loss akhir.</li>
+<li>Bandingkan output 4 prompt sebelum dan sesudah fine-tuning.</li>
+<li>Laporan PDF 500-800 kata: Pendahuluan (maks 150 kata, bahasa sendiri), Eksperimen, Hasil, Analisis, Kesimpulan, AI Usage Disclosure.</li></ol>
+<div class="tip"><b>Tips analisis:</b> hubungkan temuanmu dengan teori di atas. Contoh: apakah r lebih besar menurunkan loss? Apakah loss yang lebih rendah selalu berarti output lebih baik? Hati-hati: loss rendah bisa berarti overfitting. Gunakan juga kalkulator di bagian 3.5 untuk melaporkan jumlah parameter.</div>
+<p><b>Deliverables:</b> notebook .ipynb (semua cell dieksekusi), laporan PDF, kumpulkan via Google Classroom. Deadline pada slide: 1 April 2026 (sudah lewat; konfirmasi ke dosen bila perlu).</p></section>
+
+<section id="s8"><h2>8. Kuis latihan</h2><div id="quiz"></div><p id="score"></p></section>
+</main>
+<script src="../js/peft-lora.js" defer></script></body></html>

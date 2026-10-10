@@ -1,0 +1,11 @@
+/* Shared finishing layer for all lesson pages. */
+html{scroll-padding-top:76px}
+body{min-height:100vh;-webkit-font-smoothing:antialiased}
+section[id]{scroll-margin-top:24px}
+.home-link{display:block;margin:0 0 12px;padding:7px 10px;border-radius:7px;color:var(--mut,#677287);font:600 12px/1.4 system-ui,sans-serif;text-decoration:none}
+.home-link:hover{background:rgba(128,128,128,.1);color:var(--pri,var(--ac,var(--blue,#5646db)))}
+button,a,input,select,textarea{transition:color .16s ease,background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+:focus-visible{outline:3px solid #8c7cf2;outline-offset:3px}
+img,svg,canvas{max-width:100%}
+pre{max-width:100%;overflow:auto}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}

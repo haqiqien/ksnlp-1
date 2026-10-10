@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Belajar Post-Training LLM: dari Instruction Tuning ke RLHF</title>
+<link rel="stylesheet" href="../css/post-training.css">
+<link rel="stylesheet" href="../css/material-common.css">
+</head>
+<body>
+<button class="menu" id="menu-toggle">Daftar isi</button>
+<nav>
+<a class="home-link" href="../index.html">← Beranda</a>
+<h2>Post-Training LLM</h2>
+<div id="pct" style="color:var(--mut)">0% selesai</div>
+<div class="bar"><i id="fill"></i></div>
+<div id="toc"></div>
+</nav>
+
+<main>
+<h1>Post-Training: dari Model Bahasa ke Asisten yang Membantu</h1>
+<p>Materi ini disusun dari slide W5 (adaptasi Stanford CS224N, Diyi Yang). Tujuannya: kamu paham <b>apa</b> yang terjadi, <b>kenapa</b> perlu, dan <b>apa kelemahannya</b>. Centang setiap bagian di daftar isi setelah selesai. Ada kotak <span style="color:var(--warn)">Catatan kritis</span> untuk melatih berpikir kritis, dan kuis di akhir.</p>
+
+<section id="s1" data-t="1. Masalah: LM ≠ asisten">
+<h2 class="s">1. Masalah: language modeling ≠ membantu pengguna</h2>
+<p>Model bahasa besar (GPT-3, PaLM, Chinchilla) dilatih <b>pretraining</b>: membaca teks sangat banyak dan belajar satu hal, yaitu <b>menebak kata berikutnya</b>. Slide 3-4 menunjukkan tren: komputasi dan data terus membesar (BERT 3 miliar token, GPT-3 200 miliar, Chinchilla 1,4 triliun; anak 13 tahun kurang dari 100 juta).</p>
+<div class="ex"><b>Contoh di slide 8-9</b>
+Prompt: "Explain the moon landing to a 6 year old". GPT-3 asli menjawab dengan <i>menambah daftar perintah lain</i> ("Explain the theory of gravity to a 6 year old..."). Kenapa? Di internet, daftar soal sering diikuti soal lain, jadi melanjutkan pola itu "benar" bagi model. Setelah dilatih lanjut (InstructGPT), jawabannya berupa penjelasan sungguhan.</div>
+<p><b>Kesimpulan:</b> model pretrained tidak <i>aligned</i> (selaras) dengan maksud pengguna. Pelatihan lanjutan setelah pretraining inilah yang disebut <b>post-training</b>.</p>
+<div class="crit"><b>Catatan kritis</b>Tebakan kata berikutnya memang membuat model "tahu banyak", tapi tujuannya bukan "bantu orang". Jadi masalahnya bukan model kurang pintar, melainkan <b>tujuan latihnya salah sasaran</b>. Ini ide kunci seluruh materi.</div>
+</section>
+
+<section id="s2" data-t="2. Instruction finetuning">
+<h2 class="s">2. Instruction finetuning (SFT)</h2>
+<h3>Ide dasar</h3>
+<p>Kumpulkan banyak pasangan <code>(instruksi, jawaban ideal)</code> dari <b>banyak jenis tugas</b>, lalu latih ulang (finetune) model dengan pasangan itu. Pretraining = belajar bahasa umum; instruction finetuning = belajar <i>cara merespons perintah</i>. Slide 10-12 membedakan: finetune biasa untuk <b>satu</b> tugas (misal sentimen) vs finetune untuk <b>banyak</b> tugas sekaligus.</p>
+<p>Yang diuji adalah <b>tugas yang belum pernah dilihat</b> (unseen tasks). Contoh slide 12: model diminta menalar "Bisakah Geoffrey Hinton ngobrol dengan George Washington?" lalu menjawab "tidak" karena hidup di era berbeda.</p>
+<h3>Data dan skala</h3>
+<div class="tw"><table>
+<tr><th>Nama</th><th>Isi</th><th>Catatan</th></tr>
+<tr><td>Super-NaturalInstructions</td><td>1.600+ tugas, 3 juta+ contoh</td><td>Klasifikasi, tagging, rewriting, terjemahan, QA</td></tr>
+<tr><td>FLAN-T5</td><td>T5 + 1,8 ribu tugas tambahan</td><td>Model besar untung lebih banyak</td></tr>
+<tr><td>Alpaca</td><td>LLaMA 7B + 52 ribu contoh</td><td>Datanya dibuat oleh LM lain (self-instruct, 175 tugas awal)</td></tr>
+<tr><td>LIMA</td><td>sekitar 1.000 contoh pilihan</td><td>"Less is more for alignment"</td></tr>
+</table></div>
+<h3>Bukti hasil (slide 18-20)</h3>
+<p>Pada BIG-bench+MMLU, FLAN-T5 selalu lebih baik dari T5 biasa, dan <b>makin besar model, makin besar peningkatannya</b>: +6,1 (80 juta parameter) naik menjadi +26,6 (11 miliar). Sebelum finetuning, model hanya mengulang kalimat soal; sesudahnya menjawab "(C) Ambiguous" dengan alasan.</p>
+<h3>Cara mengukur: benchmark</h3>
+<p><b>MMLU</b>: pilihan ganda 57 bidang (astronomi, biologi SMA, hukum, dst), mengukur pengetahuan. <b>BIG-Bench</b>: 200+ tugas (penalaran, matematika, bahasa, pemrograman). Skor MMLU rata-rata naik dari sekitar 28% (RoBERTa 2019) ke sekitar 85-90% (model 2023-2024).</p>
+<div class="crit"><b>Catatan kritis</b>
+(1) Skor benchmark tinggi belum tentu model "paham": soal bisa bocor ke data latih (contamination) dan pilihan ganda mudah ditebak. (2) LIMA dan Alpaca menunjukkan <b>kualitas dan keragaman data lebih penting daripada jumlah</b>, tapi Alpaca belajar dari output model lain, jadi kesalahan dan bias model pengajar ikut menurun. (3) Instruction finetuning hanya mengajarkan <i>meniru</i> contoh.</div>
+</section>
+
+<section id="s3" data-t="3. Batas SFT">
+<h2 class="s">3. Kenapa SFT belum cukup?</h2>
+<p><b>Masalah 0:</b> menulis jawaban ideal oleh manusia itu mahal.</p>
+<p><b>Masalah 1:</b> tugas terbuka (cerita tentang anjing dan belalang peliharaannya) tidak punya satu jawaban benar. Mau meniru yang mana?</p>
+<p><b>Masalah 2:</b> loss bahasa menghukum semua kesalahan token <b>sama berat</b>. Slide 24: kalimat "Avatar is a fantasy TV show". Kalau model menulis "adventure" (dekat) atau "musical" (jauh salah), loss-nya sama-sama dianggap "bukan kata asli". Padahal kesalahannya tidak sama parah.</p>
+<div class="note"><b>Inti</b>Ada <i>mismatch</i> antara tujuan LM (cocok dengan teks referensi) dan tujuan sebenarnya (disukai manusia). Solusi: optimalkan langsung preferensi manusia.</div>
+</section>
+
+<section id="s4" data-t="4. Dasar RL & PPO">
+<h2 class="s">4. Dasar reinforcement learning (RL)</h2>
+<p>Bayangkan tiap ringkasan <i>s</i> diberi nilai manusia R(s) (makin tinggi makin bagus). Slide 25: ringkasan gempa yang akurat bernilai 8,0; ringkasan yang melenceng bernilai 1,2. Tujuan kita:</p>
+<span class="f">maksimalkan  E_{ŝ ~ p_θ(s)} [ R(ŝ) ]   (rata-rata reward dari sampel model)</span>
+<p>Artinya: ubah parameter θ supaya jawaban yang dihasilkan model rata-rata berreward tinggi.</p>
+<h3>Kerangka RL (slide 28)</h3>
+<p><b>Agent</b> (model) punya <b>policy</b> (aturan memilih kata). Ia melakukan <b>action</b> (menulis teks) ke <b>environment</b>, lalu mendapat <b>reward</b>. Algoritma belajar memperbarui policy.</p>
+<h3>Kenapa tidak gradient ascent biasa?</h3>
+<p>Dua kendala (slide 27): (a) bagaimana memperkirakan ekspektasi atas teks yang disampling, dan (b) reward manusia <b>tidak differentiable</b> (tidak bisa diturunkan). Jawabannya <b>policy gradient</b> (REINFORCE): naikkan peluang teks berreward tinggi, turunkan peluang yang rendah.</p>
+<h3>PPO (Proximal Policy Optimization)</h3>
+<p>REINFORCE punya masalah: gradien sangat berfluktuasi (variance tinggi), pelatihan tidak stabil, boros sampel. Ide PPO: <b>batasi seberapa jauh policy boleh berubah dalam satu update</b>.</p>
+<span class="f">L = E[ min( r(θ)·A , clip(r(θ), 1−ε, 1+ε)·A ) ]</span>
+<p><b>r(θ)</b> = p_baru(s) / p_lama(s), yaitu rasio peluang. <b>A</b> = advantage, seberapa lebih baik dari yang diharapkan. <b>ε</b> = batas (misal 0,2). Jika rasio keluar dari rentang 0,8-1,2, gradiennya "dipotong", jadi model tidak lompat terlalu jauh.</p>
+<div class="ex"><b>Analogi</b>Belajar menyetir: instruktur boleh mengoreksi, tapi tidak boleh langsung memutar setir 90 derajat. Perubahan kecil dan bertahap membuat belajar stabil.</div>
+<div class="crit"><b>Catatan kritis</b>Slide menegaskan RL pada LM "masih sulit dilakukan dengan benar". PPO butuh banyak model di memori sekaligus dan banyak penyetelan, dan inilah alasan muncul alternatif seperti DPO dan GRPO (bagian 9).</div>
+</section>
+
+<section id="s5" data-t="5. Reward model">
+<h2 class="s">5. Reward model: meniru selera manusia</h2>
+<p><b>Masalah 1:</b> meminta manusia menilai setiap output saat training sangat mahal. <b>Solusi:</b> latih model terpisah, <b>reward model (RM)</b>, untuk menebak nilai yang akan diberi manusia, lalu pakai RM sebagai pengganti manusia.</p>
+<p><b>Masalah 2:</b> nilai angka manusia berisik dan tidak konsisten (ringkasan s3: 4,1? 6,6? 3,2?). <b>Solusi:</b> jangan minta angka, minta <b>perbandingan berpasangan</b> ("mana lebih baik, A atau B?"), karena manusia lebih konsisten memilih daripada memberi skor.</p>
+<h3>Loss Bradley-Terry</h3>
+<span class="f">J(φ) = − E[ log σ( RM(s_menang) − RM(s_kalah) ) ]</span>
+<p>σ adalah fungsi sigmoid. Loss kecil jika skor jawaban yang <b>dipilih manusia</b> lebih tinggi daripada yang kalah. Yang dipelajari hanya <i>selisih</i>, bukan angka mutlak.</p>
+<figure>
+<svg viewBox="0 0 640 190" width="640" role="img" aria-label="Reward model memberi skor, pasangan menang kalah">
+<rect x="10" y="20" width="170" height="60" rx="8" fill="none" stroke="#1d7a4d" stroke-width="2"/>
+<text x="95" y="45" text-anchor="middle">Jawaban A (dipilih)</text><text x="95" y="65" text-anchor="middle">"Gempa, kerusakan ringan"</text>
+<rect x="10" y="110" width="170" height="60" rx="8" fill="none" stroke="#a42a2a" stroke-width="2"/>
+<text x="95" y="135" text-anchor="middle">Jawaban B (kalah)</text><text x="95" y="155" text-anchor="middle">"Bay Area cuacanya bagus"</text>
+<rect x="250" y="55" width="130" height="80" rx="8" fill="none" stroke="#1f4e8c" stroke-width="2"/>
+<text x="315" y="90" text-anchor="middle">Reward Model</text><text x="315" y="110" text-anchor="middle">RM_φ(s)</text>
+<path d="M180 50H250M180 140H250" stroke="#888" stroke-width="2"/>
+<rect x="450" y="25" width="170" height="50" rx="8" fill="none" stroke="#b5651d" stroke-width="2"/>
+<text x="535" y="55" text-anchor="middle">skor A = 8,0</text>
+<rect x="450" y="115" width="170" height="50" rx="8" fill="none" stroke="#b5651d" stroke-width="2"/>
+<text x="535" y="145" text-anchor="middle">skor B = 1,2</text>
+<path d="M380 80L450 55M380 110L450 140" stroke="#888" stroke-width="2"/>
+<text x="315" y="185" text-anchor="middle">Latihan: paksa skor A &gt; skor B</text>
+</svg>
+<figcaption>Diagram 1. Reward model dilatih dari pasangan "menang-kalah".</figcaption></figure>
+<div class="crit"><b>Catatan kritis</b>RM hanyalah <i>perkiraan</i> selera manusia dari data terbatas. Semua kelemahan RM (bias, celah) nanti dieksploitasi oleh model yang dioptimalkan terhadapnya (bagian 8).</div>
+</section>
+
+<section id="s6" data-t="6. RLHF lengkap">
+<h2 class="s">6. RLHF: menyatukan semuanya</h2>
+<figure>
+<svg viewBox="0 0 700 170" width="700" role="img" aria-label="Pipeline RLHF tiga langkah">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#888"/></marker></defs>
+<rect x="8" y="30" width="205" height="110" rx="10" fill="none" stroke="#1f4e8c" stroke-width="2"/>
+<text x="110" y="55" text-anchor="middle" font-weight="700">Langkah 1: SFT</text>
+<text x="110" y="80" text-anchor="middle">Manusia menulis jawaban</text><text x="110" y="100" text-anchor="middle">ideal, model di-finetune</text><text x="110" y="120" text-anchor="middle">(instruction tuning)</text>
+<rect x="248" y="30" width="205" height="110" rx="10" fill="none" stroke="#b5651d" stroke-width="2"/>
+<text x="350" y="55" text-anchor="middle" font-weight="700">Langkah 2: Reward Model</text>
+<text x="350" y="80" text-anchor="middle">Model buat beberapa jawaban,</text><text x="350" y="100" text-anchor="middle">manusia meranking, latih RM</text><text x="350" y="120" text-anchor="middle">(Bradley-Terry)</text>
+<rect x="488" y="30" width="205" height="110" rx="10" fill="none" stroke="#1d7a4d" stroke-width="2"/>
+<text x="590" y="55" text-anchor="middle" font-weight="700">Langkah 3: RL (PPO)</text>
+<text x="590" y="80" text-anchor="middle">Model menulis, RM memberi</text><text x="590" y="100" text-anchor="middle">reward, policy diperbarui</text><text x="590" y="120" text-anchor="middle">(+ penalti KL)</text>
+<path d="M213 85H246M453 85H486" stroke="#888" stroke-width="2" marker-end="url(#ar)"/>
+</svg>
+<figcaption>Diagram 2. Pipeline RLHF (Christiano 2017; Stiennon 2020; Ouyang 2022).</figcaption></figure>
+<p>Reward yang dioptimalkan pada langkah 3:</p>
+<span class="f">R(s) = RM_φ(s) − β · log( p_RL(s) / p_PT(s) )</span>
+<p><b>Suku kedua adalah penalti KL.</b> Jika model RL mulai menghasilkan teks yang jauh berbeda dari model asal (p_RL jauh lebih besar dari p_PT), reward dikurangi. Tanpa penalti ini, model akan menyimpang dan mengejar skor RM dengan cara aneh. β mengatur seberapa ketat "tali pengikatnya".</p>
+<h3>Hasil (Stiennon 2020, ringkasan berita)</h3>
+<p>Fraksi ringkasan yang lebih disukai manusia dibanding ringkasan referensi: hanya pretrain ≈ 0,2-0,36; supervised ≈ 0,39-0,43; <b>RLHF ≈ 0,6-0,7</b>. Jadi RLHF mengalahkan pretraining + SFT, bahkan melewati ringkasan buatan manusia (garis 0,5).</p>
+<div class="crit"><b>Catatan kritis</b>"Lebih disukai" belum berarti "lebih benar". Perubahan nyata RLHF sering berupa <b>gaya</b>: jawaban lebih panjang, rapi, bernomor (slide 47). Itu bagus untuk kegunaan, tetapi bisa menipu kita soal kualitas isi.</div>
+</section>
+
+<section id="s7" data-t="7. InstructGPT & ChatGPT">
+<h2 class="s">7. InstructGPT dan ChatGPT</h2>
+<p><b>InstructGPT</b> (Ouyang 2022) menerapkan RLHF dalam skala besar: sekitar 30 ribu tugas. Prompt berasal dari tiga sumber: <b>plain</b> (labeler membuat tugas bebas), <b>few-shot</b> (instruksi + contoh), <b>user-based</b> (kasus penggunaan dari daftar tunggu API OpenAI).</p>
+<p>Bukti: untuk "Write a short poem about a wise frog", GPT-3 hanya menambah perintah lain, sedangkan InstructGPT benar-benar menulis puisi.</p>
+<p><b>ChatGPT</b>: metode sama, tetapi data berupa <b>dialog</b>. Pelatih manusia memerankan pengguna dan asisten (SFT), lalu jawaban model diranking (RM), lalu PPO, diulang beberapa iterasi.</p>
+<p>Studi terkontrol (Dubois 2023, slide 46): PPO bekerja, tetapi baseline sederhana seperti <b>Best-of-n</b> (ambil jawaban terbaik dari n sampel menurut RM) juga cukup bagus. Banyak penelitian memakai <b>feedback GPT-4</b> sebagai pengganti manusia (simulated).</p>
+<div class="crit"><b>Catatan kritis</b>OpenAI dan perusahaan sejenis menyembunyikan detail data, parameter, dan ukuran model ChatGPT. Hasilnya sulit direproduksi dan diaudit, dan ini perlu dicatat dalam menilai klaim.</div>
+</section>
+
+<section id="s8" data-t="8. Keterbatasan RLHF">
+<h2 class="s">8. Keterbatasan RL dan reward modeling</h2>
+<h3>a) Reward hacking</h3>
+<p>Agen mengejar <i>angka reward</i>, bukan tujuan sebenarnya. Contoh klasik (slide 49, OpenAI "faulty reward functions"): di game balap perahu, agen berputar-putar mengumpulkan bonus alih-alih menyelesaikan lomba, karena skor tinggi.</p>
+<h3>b) Terdengar benar, belum tentu benar</h3>
+<p>Chatbot diberi hadiah karena jawaban <i>tampak</i> berwibawa dan membantu. Akibatnya bisa mengarang fakta (<b>halusinasi</b>). Slide 50: Bing AI keliru soal Super Bowl dan chatbot Google (Bard) salah pada peluncurannya, memicu saham turun sekitar 100 miliar dolar.</p>
+<h3>c) Over-optimization reward model</h3>
+<figure>
+<svg viewBox="0 0 520 260" width="520" role="img" aria-label="Kurva prediksi RM naik terus sementara preferensi nyata turun">
+<path d="M60 20V220H490" stroke="#888" fill="none" stroke-width="2"/>
+<path d="M60 160Q150 100 250 62T480 28" stroke="#b5651d" stroke-width="3" fill="none" stroke-dasharray="8 5"/>
+<path d="M60 175Q130 145 200 128T330 135T480 215" stroke="#1d7a4d" stroke-width="3" fill="none"/>
+<text x="400" y="22" fill="#b5651d" style="fill:#b5651d">Prediksi RM (naik terus)</text>
+<text x="330" y="170" style="fill:#1d7a4d">Preferensi manusia sebenarnya</text>
+<text x="275" y="245" text-anchor="middle">KL dari model supervised (makin jauh →)</text>
+<text x="8" y="120" transform="rotate(-90 14 120)">Skor / preferensi</text>
+<path d="M200 128V220" stroke="#888" stroke-dasharray="3 4"/><text x="200" y="236" text-anchor="middle">titik optimal</text>
+</svg>
+<figcaption>Diagram 3. Ilustrasi (sketsa konseptual) dari Stiennon 2020: terus mengoptimalkan RM justru merusak kualitas nyata.</figcaption></figure>
+<p>Ini <b>Hukum Goodhart</b>: ketika ukuran dijadikan target, ia berhenti jadi ukuran yang baik. Karena itu penalti KL penting.</p>
+<h3>d) Dari mana label? Bias annotator</h3>
+<p>Label RLHF sering dikerjakan pekerja berupah rendah di luar negeri (slide 58; laporan TIME: pekerja Kenya di bawah 2 dolar per jam). Demografi labeler sempit (slide 59: mayoritas Asia Tenggara, 25-34 tahun, sarjana). OpinionQA menunjukkan model hasil tuning cenderung condong ke kelompok tertentu. Contoh slide 60: reward model Starling 7B memberi skor berbeda pada "I am from {country}" tergantung negaranya, sehingga ada <b>bias tak disengaja</b>.</p>
+<div class="crit"><b>Pertanyaan renungan</b>Siapa yang berhak menentukan "jawaban terbaik"? Apakah selera sekelompok kecil labeler pantas jadi standar untuk jutaan pengguna dari budaya berbeda, termasuk Indonesia?</div>
+</section>
+
+<section id="s9" data-t="9. Lanjutan & kuis">
+<h2 class="s">9. Perkembangan lanjutan</h2>
+<p><b>DPO</b> (Direct Preference Optimization): melatih langsung dari pasangan menang-kalah tanpa reward model terpisah dan tanpa loop RL, jadi lebih sederhana. <b>GRPO</b>: varian PPO yang membandingkan sekelompok jawaban untuk satu prompt (slide hanya menyebut namanya, jadi pelajari dari sumber lain untuk detail). <b>RLAIF</b> (Bai 2022): umpan balik dari AI untuk menekan biaya manusia. Juga finetuning LM pada output sendiri.</p>
+<p>Pesan penutup slide: RLHF masih area yang cepat berkembang dan mahal datanya, dan keterbatasan seperti halusinasi <b>mungkin tidak selesai</b> hanya dengan RLHF.</p>
+
+<h2 class="s" style="margin-top:28px">Kuis latihan (jawab dulu di kepala, baru klik)</h2>
+<div class="q">1. Kenapa GPT-3 asli menjawab "Explain the moon landing..." dengan daftar perintah lain?<br><button>Lihat jawaban</button><div class="a">Karena tujuannya hanya menebak teks lanjutan, bukan memenuhi maksud pengguna (tidak aligned).</div></div>
+<div class="q">2. Sebutkan dua kelemahan instruction finetuning.<br><button>Lihat jawaban</button><div class="a">Data jawaban ideal mahal; tugas terbuka tak punya satu jawaban benar; loss menghukum semua kesalahan token sama rata (mismatch dengan preferensi manusia).</div></div>
+<div class="q">3. Kenapa memakai perbandingan berpasangan, bukan skor angka?<br><button>Lihat jawaban</button><div class="a">Skor manusia berisik dan tidak terkalibrasi; memilih mana yang lebih baik lebih konsisten.</div></div>
+<div class="q">4. Apa fungsi suku −β log(p_RL / p_PT)?<br><button>Lihat jawaban</button><div class="a">Penalti KL agar model tidak menyimpang jauh dari model pretrained, sekaligus mengurangi reward hacking.</div></div>
+<div class="q">5. Apa yang dilakukan PPO agar lebih stabil dari REINFORCE?<br><button>Lihat jawaban</button><div class="a">Memotong (clip) rasio probabilitas baru/lama sehingga policy hanya berubah sedikit per update.</div></div>
+<div class="q">6. Jelaskan over-optimization reward model dengan kalimatmu sendiri.<br><button>Lihat jawaban</button><div class="a">Skor RM terus naik saat model dioptimalkan, tetapi kualitas menurut manusia sungguhan turun setelah titik tertentu, karena model memanfaatkan celah RM.</div></div>
+</section>
+</main>
+
+<script src="../js/post-training.js" defer></script>
+</body>
+</html>
