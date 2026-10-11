@@ -1,0 +1,23 @@
+﻿/* Page-specific accents on the shared Ruang Belajar lesson system. */
+body > main > header.hero { position:relative; overflow:hidden; }
+body > main > header.hero::after { content:""; position:absolute; right:-45px; top:-68px; width:210px; height:210px; border:1px solid color-mix(in srgb,var(--primary) 24%,transparent); border-radius:50%; box-shadow:0 0 0 22px color-mix(in srgb,var(--primary) 4%,transparent),0 0 0 46px color-mix(in srgb,var(--accent) 7%,transparent); pointer-events:none; }
+body > main > header.hero h1 { max-width: 18ch; }
+body > main > section > h2 { scroll-margin-top:138px; }
+.kritis { padding:13px 16px; margin:18px 0; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; background:var(--warn); }
+.kritis b:first-child { display:block; margin-bottom:3px; color:var(--primary); }
+.ex { padding:12px 16px; border-left:3px solid var(--accent); border-radius:0 9px 9px 0; background:color-mix(in srgb,var(--accent) 8%,var(--card)); color:var(--mut); }
+.tw { max-width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+.tw table { margin:0; }
+.bar { display:flex; align-items:center; gap:10px; max-width:100%; margin:8px 0; font-size:12px; }
+.bar span:first-child { width:200px; flex:none; }
+.bar i { display:block; height:12px; border-radius:99px; background:var(--ok); }
+.bar i.r { background:#d66b70; }
+.q { margin:16px 0; padding:17px 18px; border:1px solid var(--line); background:var(--bg); box-shadow:0 4px 16px rgba(27,34,69,.035); }
+.q > b { display:block; margin-bottom:10px; color:var(--ink); font:750 15px/1.5 "Manrope",sans-serif; }
+.q button { min-height:42px; padding:9px 12px; border-color:var(--line); background:var(--card); font:500 13px/1.5 "DM Sans",sans-serif; }
+.q button:hover:not(:disabled) { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 5%,var(--card)); }
+.q button.ok,.q button.no { border-color:transparent; color:#fff; }
+.q button.ok { background:#31966e; }.q button.no { background:#bd4d57; }
+.q .exp { margin-top:12px; padding:11px 13px; border-radius:8px; background:color-mix(in srgb,var(--primary) 7%,var(--card)); color:var(--mut); }
+#skor { display:inline-flex; margin:0 0 8px; padding:8px 13px; border:1px solid var(--line); border-radius:9px; background:var(--card); color:var(--primary); font:750 13px "Manrope",sans-serif; }
+@media(max-width:560px) { .bar span:first-child { width:120px; } body > main > header.hero::after { right:-100px; } }

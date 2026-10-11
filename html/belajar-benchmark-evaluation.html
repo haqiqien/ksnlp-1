@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmark &amp; Evaluation | Ruang Belajar LLM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/benchmark-evaluation.css">
+<link rel="stylesheet" href="../css/material-common.css">
+<script src="../js/site-controls.js" defer></script>
+</head>
+<body>
+<nav aria-label="Daftar bagian">
+<a class="home-link" href="../index.html">Beranda</a>
+<b>Benchmark &amp; Evaluation</b>
+<a href="#s1">1. Mengapa evaluasi penting</a>
+<a href="#s2">2. Benchmark closed-ended</a>
+<a href="#s3">3. Benchmark yang bagus</a>
+<a href="#s4">4. Shortcut &amp; adversarial</a>
+<a href="#s5">5. Evaluasi text generation</a>
+<a href="#s6">6. Evaluasi chatbot &amp; LLM</a>
+<a href="#s7">7. Consistency &amp; contamination</a>
+<a href="#s8">8. Ringkasan</a>
+<a href="#s9">9. Kuis latihan</a>
+
+</nav>
+<main>
+<header class="hero"><h1>Benchmark &amp; Evaluation</h1>
+<p class="lead">Catatan belajar berdasarkan slide W8 (Stanford CS224N, Tatsunori Hashimoto; disajikan oleh Rifki Afina Putri, UGM). Kotak kuning <b>"Berpikir kritis"</b> berisi pertanyaan yang sebaiknya selalu kamu ajukan.</p></header>
+
+<section id="s1"><h2>1. Mengapa benchmark dan evaluasi penting</h2>
+<p>Benchmark adalah kumpulan soal standar untuk membandingkan model. Contohnya ImageNet (gambar), GLUE dan SQuAD (bahasa), WMT (terjemahan), dan Chatbot Arena (chatbot). Karena semua peneliti berlomba menaikkan skor di benchmark yang sama, <b>benchmark menentukan arah kemajuan bidang</b>.</p>
+<p>Ada dua jenis evaluasi:</p>
+<div class="tw"><table>
+<tr><th></th><th>Closed-ended</th><th>Open-ended</th></tr>
+<tr><td>Jawaban benar</td><td>Sedikit, jelas</td><td>Ribuan variasi, ada "lebih baik/lebih buruk"</td></tr>
+<tr><td>Contoh tugas</td><td>Klasifikasi sentimen, NLI, extractive QA</td><td>Menulis cerita, ringkasan, dialog, chatbot</td></tr>
+<tr><td>Cara menilai</td><td>Otomatis (accuracy, F1, exact match)</td><td>Sulit: metrik overlap, model, atau manusia</td></tr>
+</table></div>
+<div class="kritis"><b>Berpikir kritis</b>Jika semua orang mengejar skor benchmark, apa yang terjadi bila benchmark itu cacat? Model bisa tampak hebat padahal hanya pandai "menjawab soal itu". Inilah tema besar seluruh materi ini (hukum Goodhart: ketika ukuran dijadikan target, ia berhenti menjadi ukuran yang baik).</div>
+
+</section>
+<section id="s2"><h2>2. Benchmark closed-ended</h2>
+<p>Karena jawabannya terbatas, evaluasi bisa otomatis, mirip evaluasi machine learning biasa.</p>
+<h3>Single-task</h3>
+<div class="tw"><table>
+<tr><th>Tugas</th><th>Dataset</th><th>Isi</th></tr>
+<tr><td>Sentimen</td><td>SST, IMDB</td><td>Kalimat/ulasan → positif atau negatif</td></tr>
+<tr><td>Entailment (NLI)</td><td>SNLI, MultiNLI</td><td>Premis + hipotesis → entailment, neutral, atau contradiction</td></tr>
+<tr><td>QA</td><td>SQuAD, NaturalQuestions</td><td>Pertanyaan + dokumen → bagian dokumen yang menjadi jawaban</td></tr>
+</table></div>
+<div class="ex">Contoh NLI: premis "A soccer game with multiple males playing" dan hipotesis "Some men are playing a sport" → <b>entailment</b>. Premis "A man inspects the uniform..." dan hipotesis "The man is sleeping" → <b>contradiction</b>.</div>
+
+<h3>Multi-task: SuperGLUE</h3>
+<p>Mencoba mengukur "kemampuan bahasa umum" lewat banyak tugas sekaligus, lalu skornya dirata-rata.</p>
+<div class="tw"><table>
+<tr><th>Tugas</th><th>Yang diukur</th><th>Contoh singkat</th></tr>
+<tr><td>BoolQ, MultiRC</td><td>Membaca teks</td><td>"Is barq's root beer a pepsi product?" → No</td></tr>
+<tr><td>CB, RTE</td><td>Entailment</td><td>Apakah hipotesis mengikuti teks?</td></tr>
+<tr><td>COPA</td><td>Sebab-akibat</td><td>"Tubuhku membuat bayangan di rumput." Sebabnya: matahari terbit atau rumput dipotong?</td></tr>
+<tr><td>ReCoRD</td><td>QA + penalaran</td><td>Mengisi entitas yang hilang dari berita</td></tr>
+<tr><td>WiC</td><td>Makna kata</td><td>Apakah "board" di dua kalimat bermakna sama?</td></tr>
+<tr><td>WSC</td><td>Koreferensi</td><td>"He" merujuk ke siapa?</td></tr>
+</table></div>
+<p>Di leaderboard SuperGLUE, beberapa model (mis. Vega v2 dengan 91.3) melampaui baseline manusia (89.8). Apakah itu berarti model lebih paham bahasa dari manusia? Jangan buru-buru menyimpulkan.</p>
+
+<h3>MMLU</h3>
+<p><b>Massive Multitask Language Understanding</b> (Hendrycks dkk., 2021): pilihan ganda A-D dari <b>57 bidang</b> (astronomi, biologi SMA, hukum, kedokteran, dll.) yang mengukur pengetahuan. Garis acak (random) = 25%.</p>
+<div class="kritis"><b>Berpikir kritis</b>MMLU hanya pilihan ganda. Skor tinggi belum tentu berarti model bisa menjelaskan jawaban bebas (lihat bagian 7 tentang consistency).</div>
+
+</section>
+<section id="s3"><h2>3. Apa yang membuat benchmark bagus?</h2>
+<table>
+<tr><th>Kriteria</th><th>Artinya</th></tr>
+<tr><td>Seleksi contoh</td><td>Cukup banyak (skala) dan beragam; fenomena rumit butuh banyak sampel</td></tr>
+<tr><td>Kesulitan</td><td>Bisa dikerjakan manusia, tapi sulit bagi baseline saat itu (ada <i>headroom</i>)</td></tr>
+<tr><td>Kualitas anotasi</td><td>Perilaku yang "benar" harus jelas</td></tr>
+</table>
+<h3>Contoh sukses: SQuAD</h3>
+<ul>
+<li><b>Skala</b>: sekitar 100 ribu pertanyaan, jauh lebih besar dari dataset sejenis (MCTest 2.640, Algebra 514, Science 855) dan menyertakan data training.</li>
+<li><b>Headroom</b>: tebak acak hanya 1,3% exact match, logistic regression 40%, manusia 77-80%. Jarak lebar ini memberi ruang kemajuan.</li>
+<li><b>Evaluasi otomatis relatif bersih</b>: jawaban berupa potongan teks, dengan beberapa jawaban referensi.</li>
+</ul>
+<div class="kritis"><b>Berpikir kritis</b>Headroom adalah pedang bermata dua. Begitu model melewati manusia, benchmark itu "jenuh" (saturated) dan tidak lagi membedakan model. Karena itu benchmark baru terus dibuat.</div>
+
+</section>
+<section id="s4"><h2>4. Shortcut, spurious correlation, dan evaluasi adversarial</h2>
+<p><b>Spurious correlation</b> adalah pola kebetulan di data yang berkorelasi dengan label tetapi tidak berhubungan dengan tugas sebenarnya. Contoh di NLI (Gururangan dkk., 2019): hipotesis yang mengandung kata <code>never</code> cenderung berlabel contradiction. Model bisa "menebak" dari kata negasi saja tanpa membaca premis.</p>
+<p>Akibatnya, dataset bisa sulit tetapi tetap punya jalan pintas yang belum ditemukan.</p>
+
+<h3>Diagnostic test: HANS (McCoy dkk., 2019)</h3>
+<p>Test set yang sengaja dibuat untuk menguji satu kemampuan. HANS menguji tiga heuristik sintaksis yang <b>salah</b>:</p>
+<table>
+<tr><th>Heuristik</th><th>Anggapan keliru</th><th>Contoh</th></tr>
+<tr><td>Lexical overlap</td><td>Premis memuat semua hipotesis yang katanya ada di premis</td><td>"The doctor was paid by the actor" ⇒ "The doctor paid the actor" (SALAH)</td></tr>
+<tr><td>Subsequence</td><td>Premis memuat semua subsequence berurutan</td><td>"The doctor near the actor danced" ⇒ "The actor danced" (SALAH)</td></tr>
+<tr><td>Constituent</td><td>Premis memuat semua subtree parse</td><td>"If the artist slept, the actor ran" ⇒ "The artist slept" (SALAH)</td></tr>
+</table>
+<p>Hasilnya (4 model kuat MNLI, termasuk BERT), sketsa kasarnya:</p>
+<div role="img" aria-label="Akurasi model di HANS, tinggi saat heuristik berhasil, mendekati nol saat gagal">
+<div class="bar"><span>Heuristik berhasil (entailed)</span><i style="width:95%"></i><span>~95-100%</span></div>
+<div class="bar"><span>Heuristik gagal (non-entailed)</span><i class="r" style="width:3%"></i><span>~0-15%</span></div>
+</div>
+<p>Model tampak hebat (akurasi in-domain sampai ~84%) padahal hanya memakai jalan pintas.</p>
+
+<h3>CheckList (Ribeiro dkk., 2020)</h3>
+<p>Seperti <b>unit test</b> di software, tetapi untuk model. <i>Minimum Functionality Test (MFT)</i> adalah test set kecil yang menarget satu perilaku, misalnya negasi lewat template <code>I {NEGATION} {POS_VERB} the {THING}.</code> Contoh: "I didn't love the flight" (harusnya negatif) diprediksi netral. Failure rate di tes negasi itu 76,4%. Insinyur yang memakainya menemukan banyak bug.</p>
+
+<h3>Adversarial: ANLI dan DynaBench</h3>
+<p>Penulis membuat contoh yang <b>sengaja mengecoh model</b>. Alurnya: (1) penulis membuat hipotesis, (2) model memprediksi, (3) jika model salah dan verifier setuju, contoh disimpan, (4) model dilatih ulang untuk putaran berikutnya. Benchmark terus bergerak mengikuti model.</p>
+
+<div class="kritis"><b>Berpikir kritis</b>Pelajaran inti: <b>model sering belajar dataset, bukan belajar task</b>. Akurasi tinggi di test in-domain tidak menjamin model bagus pada contoh "wajar" di luar domain. Saat membaca paper, selalu tanya: apakah ada tes di luar distribusi?</div>
+
+</section>
+<section id="s5"><h2>5. Evaluasi open-ended text generation</h2>
+<p>Di sini jawaban benar bisa ribuan. Anotator tidak mungkin mendaftar semuanya. Ada tiga keluarga metode:</p>
+<svg viewBox="0 0 700 150" role="img" aria-label="Spektrum biaya dan kualitas metrik evaluasi">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#f2b705"/></marker></defs>
+<rect x="10" y="20" width="200" height="60" rx="6" fill="#1d7a4d" opacity=".25" stroke="#1d7a4d"/><text x="110" y="45" text-anchor="middle" font-weight="700">Content overlap</text><text x="110" y="65" text-anchor="middle">BLEU, ROUGE</text>
+<rect x="250" y="20" width="200" height="60" rx="6" fill="#f2b705" opacity=".3" stroke="#f2b705"/><text x="350" y="45" text-anchor="middle" font-weight="700">Model-based</text><text x="350" y="65" text-anchor="middle">BERTScore, BLEURT</text>
+<rect x="490" y="20" width="200" height="60" rx="6" fill="#b3261e" opacity=".2" stroke="#b3261e"/><text x="590" y="45" text-anchor="middle" font-weight="700">Human eval</text><text x="590" y="65" text-anchor="middle">gold standard</text>
+<line x1="20" y1="115" x2="680" y2="115" stroke="#f2b705" stroke-width="3" marker-end="url(#a)"/>
+<text x="20" y="140">murah, cepat, dangkal</text><text x="680" y="140" text-anchor="end">mahal, lambat, paling dipercaya</text>
+</svg>
+
+<h3>5a. Content overlap metrics</h3>
+<p>Menghitung kemiripan <b>kata</b> antara output model dan referensi buatan manusia. Contoh: BLEU (presisi n-gram, awalnya untuk terjemahan), ROUGE (recall n-gram, untuk ringkasan), METEOR, CIDEr. Kelebihan: cepat, efisien, luas dipakai.</p>
+<div class="ex">Referensi: "They walked to the grocery store." Hasil model: "The woman went to the hardware store." Kata yang sama ("to the", "store") dihitung, tetapi artinya berbeda (grocery vs hardware).</div>
+<p>Kualitasnya makin buruk seiring tugas makin terbuka: terjemahan &lt; ringkasan (output panjang lebih sulit diukur) &lt; dialog &lt; pembuatan cerita (panjang teks bisa membuat skor tampak lumayan padahal tidak berarti).</p>
+<h3>Kasus gagal sederhana</h3>
+<p>Pertanyaan: "Are you enjoying the CS224N lectures?" Referensi: <b>"Heck yes!"</b></p>
+<table>
+<tr><th>Jawaban model</th><th>Skor</th><th>Masalah</th></tr>
+<tr><td>Yes!</td><td>0,61</td><td>Wajar</td></tr>
+<tr><td>You know it!</td><td>0,25</td><td>Makna benar, skor rendah</td></tr>
+<tr><td>Yup.</td><td>0</td><td><b>False negative</b>: benar tetapi tidak ada kata sama</td></tr>
+<tr><td>Heck no!</td><td>0,67</td><td><b>False positive</b>: salah tetapi kata "Heck" sama</td></tr>
+</table>
+<p>Penyebab: n-gram tidak punya konsep <b>kemiripan makna</b>.</p>
+<h3>Semantic overlap (dengan struktur makna)</h3>
+<ul>
+<li><b>PYRAMID</b>: mengidentifikasi Summarization Content Units (SCU) untuk membandingkan isi ringkasan (Nenkova dkk., 2007).</li>
+<li><b>SPICE</b>: menguraikan referensi menjadi scene graph, untuk caption gambar (Anderson dkk., 2016).</li>
+<li><b>SPIDER</b>: gabungan SPICE dan CIDEr (Liu dkk., 2017).</li>
+</ul>
+
+<h3>5b. Model-based metrics</h3>
+<p>Teks diubah menjadi <b>embedding</b> (vektor makna) dari model pretrained, lalu dihitung kedekatannya. Tidak lagi terikat "bottleneck n-gram".</p>
+<div class="tw"><table>
+<tr><th>Metrik</th><th>Cara kerja</th></tr>
+<tr><td>Embedding Average, Vector Extrema</td><td>Rata-rata atau nilai ekstrem vektor kata, lalu bandingkan dengan cosine</td></tr>
+<tr><td>Word Mover's Distance</td><td>"Jarak angkut" minimal dari kata-kata satu kalimat ke kalimat lain di ruang embedding</td></tr>
+<tr><td>BERTScore</td><td>Mencocokkan tiap kata kandidat dengan kata referensi terdekat memakai embedding kontekstual BERT, lalu mengambil kesamaan maksimum</td></tr>
+<tr><td>Sentence Mover's Similarity</td><td>Seperti WMD tetapi pada level kalimat</td></tr>
+<tr><td>BLEURT</td><td>Model regresi berbasis BERT yang dilatih meniru nilai manusia (gramatikal dan sesuai makna)</td></tr>
+<tr><td>MAUVE</td><td>Mengukur divergensi informasi antara distribusi teks hasil model dan teks manusia di ruang embedding terkuantisasi. Menangkap Type I error (teks repetitif/tidak wajar) dan Type II error (teks wajar tetapi tidak mirip manusia)</td></tr>
+</table></div>
+
+<h3>Kasus gagal penting: referensi yang buruk</h3>
+<p>Metrik berbasis referensi <b>hanya sebaik referensinya</b>. Pada CNN/Daily Mail dan XSUM, ROUGE tidak berkorelasi dengan faithfulness (kesetiaan pada fakta sumber). Lebih mengejutkan: nilai manusia untuk referensi dataset (faithfulness XSUM 0,37) lebih rendah daripada keluaran LLM zero-shot (mis. 0,96-0,97). Melatih model pada referensi seperti itu justru membuatnya lebih buruk.</p>
+<div class="kritis"><b>Berpikir kritis</b>Pertanyaan yang harus selalu diajukan: <i>siapa yang membuat referensinya dan apakah ia benar-benar kualitas emas?</i> Dan: bagaimana kita mengevaluasi metrik evaluasi itu sendiri? Jawabannya: hitung korelasi metrik dengan penilaian manusia (Liu dkk., 2016: BLEU-2 dan embedding average pada dialog Twitter/Ubuntu hampir tidak berkorelasi dengan skor manusia, padahal dua kelompok manusia saling berkorelasi tinggi).</div>
+
+<h3>5c. Reference-free evaluation</h3>
+<p>Tanpa referensi manusia: sebuah model memberi skor langsung. Dulu tidak standar, kini populer sejak GPT-4. Contoh: FactCC, GPT-4-as-judge, AlpacaEval.</p>
+
+<h3>5d. Human evaluation</h3>
+<p>Standar emas, dan metrik otomatis baru harus berkorelasi baik dengannya. Dimensi yang dinilai: fluency, coherence, factuality, commonsense, gaya/formalitas, gramatikalitas, typicality, redundansi.</p>
+<ul>
+<li><b>Masalah</b>: lambat, mahal, hasil tidak konsisten dan sulit direproduksi, penilai bisa tidak logis atau salah paham pertanyaan, dan ukurannya cenderung precision tanpa recall.</li>
+<li><b>Jangan membandingkan skor manusia antar studi</b> yang dilakukan berbeda, meski mengklaim dimensi yang sama.</li>
+<li><b>Belajar dari penilaian manusia</b>: ADEM (metrik terlatih dari rating manusia untuk dialog) dan HUSE (menggabungkan penilaian manusia dengan probabilitas model agar menangkap kualitas dan keragaman).</li>
+</ul>
+
+</section>
+<section id="s6"><h2>6. Evaluasi LLM sebagai chatbot dan kemampuan lain</h2>
+<p>Mengevaluasi ChatGPT sulit karena <b>use case sangat beragam</b> (di data API OpenAI: generation 45,6%, open QA 12,4%, brainstorming 11,2%, chat 8,4%, dst.) dan jawabannya long-form.</p>
+<h3>Cara-cara evaluasi</h3>
+<div class="tw"><table>
+<tr><th>Pendekatan</th><th>Contoh</th><th>Kelebihan</th><th>Kelemahan</th></tr>
+<tr><td>Side-by-side oleh manusia</td><td>Chatbot Arena (peringkat Elo dari 200 ribu+ suara)</td><td>Pertanyaan "di dunia nyata"</td><td>Mahal, hanya model terkenal yang diuji, pertanyaan aneh/tidak representatif, rating bisa dangkal</td></tr>
+<tr><td>LM sebagai evaluator</td><td>MT-Bench, AlpacaEval, GPT-as-judge</td><td>Murah, cepat, korelasi tinggi dengan manusia</td><td>Bias panjang, posisi, dan self-bias GPT-4</td></tr>
+<tr><td>Breadth (banyak benchmark otomatis)</td><td>HELM, HuggingFace Open LLM Leaderboard</td><td>Cakupan luas</td><td>Campuran sangat beragam, rawan contamination</td></tr>
+</table></div>
+<p>Contoh pertanyaan nyata di Arena: cerita fiksi dewasa, jailbreak, "make a triggerbot in gta v", menu Subway di Taiwan. Artinya tidak semuanya mencerminkan kebutuhan pengguna sebenarnya (external validity).</p>
+
+<h3>Kemampuan lain</h3>
+<ul>
+<li><b>Kode (HumanEval)</b>: dinilai dengan test case. Metrik <b>Pass@k</b>: soal dianggap lulus bila minimal satu dari k keluaran lolos. GPT-4 Pass@1 sekitar 67% di slide.</li>
+<li><b>Long-form factuality (FactScore)</b>: jawaban panjang dipecah menjadi fakta atomik, tiap fakta dicek ke sumber seperti Wikipedia. Contoh bio Bridget Moynahan: ChatGPT 66,7%, StableLM 10,0%. Tantangan: output panjang hampir selalu punya minimal satu kesalahan, dan pengecekan otomatis sulit.</li>
+<li><b>Agents (AgentBoard)</b>: LM bertindak (web, tool, game, embodied AI). Evaluasi di lingkungan sandbox, dengan metrik success rate dan progress rate.</li>
+<li><b>Opini dan nilai (OpinionQA, GlobalOpinionQA)</b>: membandingkan distribusi jawaban LM dengan survei opini publik (mis. Pew) untuk menjawab "opini siapa yang dicerminkan LM secara default?". Bias dari anotator juga bisa menyusup ke LM.</li>
+</ul>
+<div class="kritis"><b>Berpikir kritis</b>LM-as-judge itu murah, tetapi ia membawa bias yang sama seperti manusia (menyukai jawaban panjang dan berdaftar). Jika model dilatih agar disukai juri, model belajar menyenangkan juri, bukan menjadi benar. Posisi bisa diacak, tetapi bias panjang dan self-bias butuh kontrol tambahan.</div>
+
+</section>
+<section id="s7"><h2>7. Masalah terbuka: consistency dan contamination</h2>
+<h3>Consistency (kekonsistenan)</h3>
+<ul>
+<li>Format yang mudah dinilai (pilihan ganda) sering <b>tidak sejalan</b> dengan format yang lebih berguna (teks bebas). Diuji dengan generator vs discriminator: model diminta membuat jawaban, lalu diminta memilih jawaban yang benar. Konsisten bila pilihannya sama dengan jawabannya sendiri. Skor konsistensi banyak model hanya sekitar 50-80%.</li>
+<li>Prompt sensitivity: mengubah urutan opsi atau penulisan prompt dapat <b>mengubah peringkat model</b> (Alzahrani dkk., 2024).</li>
+</ul>
+<h3>Contamination (kebocoran data test)</h3>
+<p>Data pretraining (mis. The Pile) berasal dari seluruh internet, jadi test set mungkin sudah pernah "dilihat" model. Bukti kasus:</p>
+<ul>
+<li>GPT-4 di Codeforces: menyelesaikan 10/10 soal mudah sebelum 2021 tetapi 0/10 soal terbaru, indikasi kuat contamination.</li>
+<li>Phi-1.5 diduga dilatih pada GSM8K: ia melanjutkan soal yang dipotong dengan benar, bahkan setelah angkanya sedikit diubah.</li>
+</ul>
+<p>Pada model tertutup, sulit memastikan benchmark benar-benar "baru". Dua detektor:</p>
+<table>
+<tr><th>Metode</th><th>Ide</th><th>Kelemahan</th></tr>
+<tr><td>Min-k-prob</td><td>Ambil k% token berprobabilitas terendah, hitung rata-rata log-likelihood. Teks yang pernah dilihat punya angka tinggi</td><td>Heuristik: berapa batas "terlalu tinggi"?</td></tr>
+<tr><td>Exchangeability test</td><td>Bandingkan probabilitas urutan asli dataset vs urutan teracak. Jika urutan asli jauh lebih mungkin, model pernah melihat dataset</td><td>Butuh teks yang muncul berulang</td></tr>
+</table>
+<p>Pada slide: exchangeability bekerja baik (p kecil) untuk dataset dengan duplikasi tinggi di data training (MNLI, MMLU, dll.) dan tidak terdeteksi pada BoolQ, HellaSwag, OpenbookQA yang duplikasinya 1. <b>Tidak ada metode yang andal jika teks hanya muncul sekali.</b></p>
+<div class="kritis"><b>Berpikir kritis</b>Ketika sebuah model mengklaim SOTA, tanyakan: apakah data test dipastikan tidak ikut terlatih? Apakah hasil tetap sama bila prompt diubah? Untuk proyek akhirmu, kedua pertanyaan ini bisa dijadikan bagian analisis.</div>
+
+</section>
+<section id="s8"><h2>8. Ringkasan (takeaways)</h2>
+<ul>
+<li><b>Closed-ended</b>: pikirkan apa yang dievaluasi (keragaman, kesulitan) dan external validity.</li>
+<li><b>Open-ended</b>: metrik overlap hanya berguna untuk setting low-diversity. Metrik reference-free makin baik tetapi masih rumit.</li>
+<li><b>Chatbot</b>: sangat sulit, memilih contoh dan cara evaluasi yang tepat adalah masalah terbuka.</li>
+<li><b>Tantangan</b>: consistency (apakah kita mengukur hal yang benar?) dan contamination (apakah angkanya bisa dipercaya?).</li>
+<li>Penilai terbaik sering kali <b>kamu sendiri</b>. Baca output model, jangan hanya angka. Rilis sampel output sistemmu secara publik.</li>
+</ul>
+<h3>Daftar singkat "kapan metrik ini gagal?"</h3>
+<table>
+<tr><th>Metrik/benchmark</th><th>Gagal ketika</th></tr>
+<tr><td>Accuracy benchmark</td><td>Ada spurious correlation atau contamination</td></tr>
+<tr><td>BLEU/ROUGE</td><td>Tugas open-ended, parafrase, dan referensi buruk</td></tr>
+<tr><td>BERTScore/BLEURT</td><td>Referensi buruk, dan bias dari model pembentuknya</td></tr>
+<tr><td>Human eval</td><td>Tidak konsisten, mahal, tidak bisa dibandingkan antar studi</td></tr>
+<tr><td>LM-as-judge</td><td>Bias panjang, posisi, self-bias</td></tr>
+<tr><td>Chatbot Arena</td><td>Pertanyaan tidak representatif, rating dangkal</td></tr>
+</table>
+
+</section>
+<section id="s9"><h2>9. Kuis latihan</h2>
+<p>Klik jawaban yang menurutmu benar. Penjelasan muncul setelah menjawab.</p>
+<p id="skor">Skor: 0/0 dijawab</p>
+<div id="kuis"></div></section>
+</main>
+<script src="../js/benchmark-evaluation.js"></script>
+</body>
+</html>
